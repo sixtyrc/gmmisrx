@@ -25,9 +25,22 @@ Dos mecanismos separados a propósito:
 - **Task Scheduler**: la actualización diaria del padrón, un job que corre y termina (no debe quedar como servicio).
 - **Self-hosted runner de GitHub Actions**: automatiza que cada push a `main` actualice el código del panel y reinicie el servicio — no toca la tarea programada (esa se registra una sola vez, no cambia con cada deploy).
 
+## Antes de tocar nada: verificar qué ya existe en el server
+
+**Ya hay otras apps corriendo en ese mismo server vía NSSM, Caddy y GitHub Actions.** Todo lo que sigue (nombre de servicio, puerto, entrada de Caddy, carpeta) son sugerencias — hay que confirmarlas contra lo que ya está para no pisar ni reiniciar sin querer un servicio de otro proyecto. Correr esto primero:
+
+```powershell
+nssm list                                    # servicios NSSM ya registrados (evitar el mismo nombre)
+netstat -ano | findstr LISTENING             # puertos ya en uso (elegir uno libre)
+schtasks /query /fo table | findstr /i misrx # confirmar que no exista ya una tarea con ese nombre
+Get-ChildItem C:\apps                        # o donde sea que vivan las otras apps, ver la convencion real de carpetas
+```
+
+Y revisar el `Caddyfile` existente (`caddy validate` antes de recargar, `caddy reload` en vez de reiniciar el proceso entero) para **agregar** el bloque nuevo sin tocar los bloques de los otros sitios. Si ya hay un runner self-hosted de GitHub Actions registrado en este server (para otros repos), la Sección 7 sigue aplicando igual: cada repo necesita su propio registro de runner (uno registrado en el repo de otro proyecto no toma jobs de este), así que no debería haber conflicto, pero conviene confirmarlo con `Get-Service | findstr actions` antes de instalar uno nuevo.
+
 ## Bootstrap inicial (una sola vez, a mano)
 
-Asumiendo que se clona en `C:\apps\gmmisrx` — ajustar la ruta si usan otra convención.
+Asumiendo que se clona en `C:\apps\gmmisrx` — **ajustar la ruta a la convención real que ya usan las otras apps del server**, confirmada en el paso anterior.
 
 ### 1. Clonar y preparar el entorno
 
@@ -44,7 +57,7 @@ python -m venv venv
 
 ### 2. Crear el `.env` real
 
-Copiar `.env.example` (en la raíz del repo) a `.env` y completar todos los valores reales (Postgres de GX, Postgres propio, MisRx, Resend, OpenWA, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, y `ALLOWED_HOSTS` con el dominio real que va a usar Caddy, ej. `misrx.tu-dominio.com`).
+Copiar `.env.example` (en la raíz del repo) a `.env` y completar todos los valores reales (Postgres de GX, Postgres propio, MisRx, Resend, OpenWA, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, y `ALLOWED_HOSTS` con el subdominio real ya creado en Cloudflare: `misrxgm.ctsoft.com.ar`).
 
 ### 3. Migrar y crear los usuarios iniciales
 
@@ -69,15 +82,15 @@ Ajustar el puerto (`8010`) si ya está en uso por otra app.
 
 ### 5. Caddy (reverse proxy)
 
-Agregar al `Caddyfile` existente:
+Subdominio ya creado en Cloudflare: `misrxgm.ctsoft.com.ar` (apuntando a este server). **Agregar** (no reemplazar nada existente) al `Caddyfile`:
 
 ```
-misrx.tu-dominio.com {
+misrxgm.ctsoft.com.ar {
     reverse_proxy localhost:8010
 }
 ```
 
-Y recargar Caddy (`caddy reload`).
+Validar antes de aplicar (`caddy validate --config <ruta-al-Caddyfile>`) y recargar sin bajar el proceso (`caddy reload`), para no afectar los demás sitios que ya sirve ese mismo Caddy.
 
 ### 6. Tarea programada diaria
 

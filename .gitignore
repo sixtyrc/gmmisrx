@@ -11,6 +11,10 @@ filter_app/tmp_downloads/*
 gx/_extract_afiliado/
 gx/_extract_reporte/
 
+# Datos reales de afiliados (DNI/nombres) usados para validar el cruce: nunca versionar
+gx/*.xlsx
+gx/*.csv
+
 # Secretos
 .env
 *.env

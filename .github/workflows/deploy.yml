@@ -11,7 +11,7 @@ jobs:
     env:
       # Ruta donde esta clonado el repo EN EL SERVER (ajustar via Settings > Actions >
       # Variables > DEPLOY_PATH si es distinta a la de docs/DEPLOY.md).
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'C:\apps\gmmisrx' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || 'C:\www\gmmisrx' }}
       NSSM_SERVICE: ${{ vars.NSSM_SERVICE || 'gmmisrx-panel' }}
 
     steps:
@@ -33,6 +33,12 @@ jobs:
         run: |
           cd "$env:DEPLOY_PATH\filter_app"
           .\venv\Scripts\python manage.py migrate --noinput
+
+      - name: Recolectar archivos estaticos (admin de Django, via Whitenoise)
+        shell: powershell
+        run: |
+          cd "$env:DEPLOY_PATH\filter_app"
+          .\venv\Scripts\python manage.py collectstatic --noinput
 
       - name: Reiniciar servicio del panel (NSSM)
         shell: powershell

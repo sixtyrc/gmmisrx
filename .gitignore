@@ -8,6 +8,7 @@ filter_app/db.sqlite3
 filter_app/tmp_downloads/*
 filter_app/padron_archivos/*
 logs/
+filter_app/staticfiles/
 
 # Export de GeneXus: se versiona el .xpz, no el XML descomprimido (derivado, ~37MB)
 gx/_extract_afiliado/

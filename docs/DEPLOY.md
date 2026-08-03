@@ -45,12 +45,12 @@ Y revisar el `Caddyfile` existente (`caddy validate` antes de recargar, `caddy r
 
 ## Bootstrap inicial (una sola vez, a mano)
 
-Asumiendo que se clona en `C:\apps\gmmisrx` — **ajustar la ruta a la convención real que ya usan las otras apps del server**, confirmada en el paso anterior.
+Se clona en `C:\www\gmmisrx` (misma convención que `agendaspa`, `cooperadora`, `GimSys`, etc.).
 
 ### 1. Clonar y preparar el entorno
 
 ```powershell
-cd C:\apps
+cd C:\www
 git clone https://github.com/sixtyrc/gmmisrx.git
 cd gmmisrx
 git checkout prod    # el server SIEMPRE corre esta rama, nunca main ni dev
@@ -64,38 +64,49 @@ python -m venv venv
 
 Copiar `.env.example` (en la raíz del repo) a `.env` y completar todos los valores reales (Postgres de GX, Postgres propio, MisRx, Resend, OpenWA, `ADMIN_USERNAME`/`ADMIN_PASSWORD`, y `ALLOWED_HOSTS` con el subdominio real ya creado en Cloudflare: `misrxgm.ctsoft.com.ar`).
 
-### 3. Migrar y crear los usuarios iniciales
+### 3. Migrar, recolectar estaticos y crear los usuarios iniciales
 
 ```powershell
-cd C:\apps\gmmisrx\filter_app
+cd C:\www\gmmisrx\filter_app
 .\venv\Scripts\python manage.py migrate
+.\venv\Scripts\python manage.py collectstatic --noinput
 .\venv\Scripts\python manage.py crear_usuarios_iniciales
 ```
 
 ### 4. Registrar el servicio NSSM del panel web
 
+Puertos ya ocupados en este server según el `Caddyfile` actual: `8000, 8001, 8002, 8003, 8004` (Django) y `3001, 3010` (Node). Usamos **`8005`**, libre — confirmar con `netstat` antes igual (paso de verificación más abajo).
+
 ```powershell
-nssm install gmmisrx-panel "C:\apps\gmmisrx\filter_app\venv\Scripts\waitress-serve.exe"
-nssm set gmmisrx-panel AppParameters "--port=8010 filter_project.wsgi:application"
-nssm set gmmisrx-panel AppDirectory "C:\apps\gmmisrx\filter_app"
-nssm set gmmisrx-panel AppStdout "C:\apps\gmmisrx\logs\panel_stdout.log"
-nssm set gmmisrx-panel AppStderr "C:\apps\gmmisrx\logs\panel_stderr.log"
+nssm install gmmisrx-panel "C:\www\gmmisrx\filter_app\venv\Scripts\waitress-serve.exe"
+nssm set gmmisrx-panel AppParameters "--port=8005 filter_project.wsgi:application"
+nssm set gmmisrx-panel AppDirectory "C:\www\gmmisrx\filter_app"
+nssm set gmmisrx-panel AppStdout "C:\www\gmmisrx\logs\panel_stdout.log"
+nssm set gmmisrx-panel AppStderr "C:\www\gmmisrx\logs\panel_stderr.log"
 nssm start gmmisrx-panel
 ```
 
-Ajustar el puerto (`8010`) si ya está en uso por otra app.
-
 ### 5. Caddy (reverse proxy)
 
-Subdominio ya creado en Cloudflare: `misrxgm.ctsoft.com.ar` (apuntando a este server). **Agregar** (no reemplazar nada existente) al `Caddyfile`:
+Subdominio ya creado en Cloudflare: `misrxgm.ctsoft.com.ar` (apuntando a este server). **Agregar** (no reemplazar nada existente) al `Caddyfile` real (`C:\caddy\Caddyfile` según los otros bloques ya vistos). A diferencia de las otras apps (que separan `/static/` y `/media/` como `file_server` porque son SPA+API), acá Django sirve todo (panel, herramienta legacy y `/admin/`) desde el mismo proceso — Whitenoise ya sirve los estáticos del admin, no hace falta un bloque aparte:
 
 ```
 misrxgm.ctsoft.com.ar {
-    reverse_proxy localhost:8010
+	reverse_proxy 127.0.0.1:8005
+
+	log {
+		output file C:\caddy\logs\misrxgm.log
+		level INFO
+	}
 }
 ```
 
-Validar antes de aplicar (`caddy validate --config <ruta-al-Caddyfile>`) y recargar sin bajar el proceso (`caddy reload`), para no afectar los demás sitios que ya sirve ese mismo Caddy.
+Validar antes de aplicar y recargar sin bajar el proceso (para no afectar los demás sitios que ya sirve ese mismo Caddy):
+
+```powershell
+caddy validate --config C:\caddy\Caddyfile
+caddy reload --config C:\caddy\Caddyfile
+```
 
 ### 6. Tarea programada diaria
 
@@ -103,7 +114,7 @@ Ya documentada en `docs/TASK-002_AUTOMATIZACION_PADRON_MISRX.md`:
 
 ```powershell
 schtasks /create /tn "MisRx - Actualizar Padron Diario" ^
-  /tr "\"C:\apps\gmmisrx\scripts\run_actualizar_padron.bat\"" ^
+  /tr "\"C:\www\gmmisrx\scripts\run_actualizar_padron.bat\"" ^
   /sc daily /st 15:30 /ru SYSTEM /rl HIGHEST /f
 ```
 
@@ -130,7 +141,7 @@ Con esto, el runner queda escuchando jobs de este repo todo el tiempo, como un s
 ## Despliegues siguientes (automáticos)
 
 Con el runner instalado, cada `push` a `prod` dispara `.github/workflows/deploy.yml`, que:
-1. Hace `git fetch` + `git reset --hard origin/prod` en `C:\apps\gmmisrx` (sin tocar `.env`, `logs/`, `padron_archivos/` — están en `.gitignore`, `git reset --hard` no los toca).
+1. Hace `git fetch` + `git reset --hard origin/prod` en `C:\www\gmmisrx` (sin tocar `.env`, `logs/`, `padron_archivos/` — están en `.gitignore`, `git reset --hard` no los toca).
 2. Reinstala dependencias (`pip install -r requirements.txt`).
 3. Corre `migrate`.
 4. Reinicia el servicio NSSM (`nssm restart gmmisrx-panel`).
@@ -144,7 +155,7 @@ También se puede disparar a mano desde GitHub (pestaña Actions → el workflow
 Si un deploy rompe algo:
 
 ```powershell
-cd C:\apps\gmmisrx
+cd C:\www\gmmisrx
 git log --oneline -5          # identificar el commit bueno anterior
 git reset --hard <commit_bueno>
 cd filter_app

@@ -7,6 +7,7 @@ filter_app/db.sqlite3
 # Archivos generados en runtime (contienen datos de afiliados reales)
 filter_app/tmp_downloads/*
 filter_app/padron_archivos/*
+logs/
 
 # Export de GeneXus: se versiona el .xpz, no el XML descomprimido (derivado, ~37MB)
 gx/_extract_afiliado/

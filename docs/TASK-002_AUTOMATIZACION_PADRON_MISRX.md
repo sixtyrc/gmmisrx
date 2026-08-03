@@ -12,12 +12,13 @@
 - [x] Corrección puntual del 2026-08-03 ya subida a MisRx (`AfiliadoGM_Ospena_20260803_104755_CORREGIDO.csv`, 1175 registros, 12 altas, procesado correctamente por MisRx).
 - [x] App Django `padron` creada dentro de `filter_app`, con modelos `PadronRun` (historial de corridas), `AfiliadoExcepcion` (casos tratados/pendientes) y `AuditLogEntry` (auditoría de login/acciones). Migraciones corridas contra Postgres local.
 - [x] `filter_app` migrado de SQLite a Postgres (via `.env`, mismas credenciales que la base propia).
-- [ ] Resend (mail): falta completar `RESEND_API_KEY`/`RESEND_FROM` en `.env` y correr la prueba de envío (`scripts/test_resend_mail.py`).
-- [ ] Pendiente resolver: DNI duplicado `53394899` (Facundo Altamirano, dos `Nro Afiliado`) — la query final ya lo resuelve solo (se queda con el de alta más reciente), no requiere acción manual adicional.
-- [ ] Falta: pipeline completo (management command que encadene query → generar archivo → subir a MisRx → verificar estado → notificar → registrar en `PadronRun`/`AfiliadoExcepcion`).
-- [ ] Falta: panel operativo (vistas Django con login, botón "ejecutar ahora", listado de historial).
+- [x] Resend (mail vía SMTP, mismo esquema que otros proyectos) configurado y probado (`manage.py test_email`) — tuvo que desactivarse momentáneamente Avast (Mail/Web Shield intercepta TLS con su propio certificado) para validar.
+- [x] Pendiente resuelto: DNI duplicado `53394899` (Facundo Altamirano, dos `Nro Afiliado`) — la query final lo resuelve sola (se queda con el de alta más reciente), no requirió acción manual.
+- [x] Pipeline completo (`manage.py actualizar_padron [--trigger manual|automatico] [--dry-run]`): consulta GX → genera CSV (mismo formato exacto que GeneXus, incluido el detalle real de que la fecha usa guiones y no barras como decía el código fuente) → sube a MisRx → verifica estado → notifica por mail → registra en `PadronRun` con diff de altas/bajas contra la corrida anterior. Probado end-to-end contra producción: MisRx confirmó "Padron procesado correctamente".
+- [x] Tarea programada: `scripts/run_actualizar_padron.bat` (activa el venv, corre `actualizar_padron --trigger automatico`, loguea a `logs/actualizar_padron.log`) probado localmente end-to-end. Falta registrar la tarea en el Programador de Tareas de Windows **del server** cuando se despliegue ahí (ver sección de abajo).
+- [ ] Falta: panel operativo (vistas Django con login, botón "ejecutar ahora", listado de historial) — estilo visual de referencia: login de GM Salud (logo + tarjeta centrada), adaptado a "MisRx".
 - [ ] Falta: WhatsApp (OpenWA) para notificaciones.
-- [ ] Falta: tarea programada diaria en el server (NSSM/Task Scheduler) y despliegue real.
+- [ ] Falta: despliegue real de la app al server (hoy se desarrolla y prueba en local, contra las bases remotas).
 
 ## Objetivo
 
@@ -160,7 +161,23 @@ Aunque la query con `DISTINCT ON (IndividuoId) ORDER BY AfiliadoFechaAlta DESC` 
 
 - Windows Server (VPS), mismo proveedor que aloja la base Postgres de GeneXus (llega en red local/LAN, sin fricción).
 - Salida a internet para llamar a la API de MisRx sin problema.
-- Ya se usan Caddy (reverse proxy/HTTPS) + NSSM (correr servicios) para otras apps Django/React — mismo patrón a seguir acá.
+- Ya se usan Caddy (reverse proxy/HTTPS) + NSSM (correr servicios) para otras apps Django/React — mismo patrón a seguir acá **para el panel web** (proceso que queda corriendo).
+
+### Tarea diaria: Task Scheduler, no NSSM
+
+La actualización del padrón es un job que corre, hace su trabajo y termina — no un proceso que deba quedar vivo. Por eso usa el **Programador de Tareas de Windows** (nativo del server), no NSSM (que es para procesos persistentes como el panel web). Son dos mecanismos distintos para dos naturalezas de proceso distintas, conviviendo en el mismo server sin pisarse.
+
+- Script: `scripts/run_actualizar_padron.bat` — activa el venv, corre `manage.py actualizar_padron --trigger automatico`, loguea a `logs/actualizar_padron.log`. Usa `%~dp0` para resolver su propia ubicación, así funciona sin importar en qué carpeta del server quede clonado el repo.
+- Horario definido: **todos los días a las 15:30 hora Argentina**.
+- Registrar la tarea en el server (ajustar la ruta al path real donde quede el repo ahí, y confirmar que la zona horaria del Windows del server sea Argentina — si no, ajustar el horario acorde):
+
+```
+schtasks /create /tn "MisRx - Actualizar Padron Diario" ^
+  /tr "\"C:\ruta\al\repo\scripts\run_actualizar_padron.bat\"" ^
+  /sc daily /st 15:30 /ru SYSTEM /rl HIGHEST /f
+```
+
+- Probado localmente end-to-end (`.bat` completo, incluida la subida real a MisRx) — funciona. Falta solamente registrarlo en el server una vez desplegado ahí.
 
 ## Diseño propuesto
 

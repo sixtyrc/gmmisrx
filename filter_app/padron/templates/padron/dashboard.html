@@ -35,6 +35,18 @@
         header h1 { font-size: 20px; font-weight: 700; }
         header .user-info { font-size: 13px; color: var(--text-muted); }
         header .user-info a { color: var(--primary); text-decoration: none; margin-left: 12px; }
+        .link-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: 12px;
+            color: var(--primary);
+            font-size: 13px;
+            font-family: inherit;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .link-btn:hover { text-decoration: underline; }
         .card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -63,6 +75,94 @@
         .badge.ok { background: #ECFDF5; color: #047857; }
         .badge.error { background: #FEF2F2; color: #B91C1C; }
         .badge.en_progreso { background: #EFF6FF; color: #1D4ED8; }
+
+        .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+        .buscar-dni-form { display: flex; gap: 10px; }
+        .buscar-dni-form input {
+            flex: 1;
+            padding: 12px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .buscar-dni-form input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+        /* Modal de confirmacion */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.45);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 28px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.15), 0 10px 10px -5px rgba(0,0,0,0.06);
+        }
+        .modal-box h2 { font-size: 17px; margin-bottom: 10px; }
+        .modal-box p { font-size: 14px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+        .modal-ultima-actualizacion {
+            background: var(--bg-color);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 22px;
+        }
+        .modal-ultima-actualizacion .label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .modal-ultima-actualizacion .valor {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-secondary {
+            background: var(--border-color);
+            color: var(--text-main);
+        }
+        .btn-secondary:hover { background: #CBD5E1; }
+
+        .filtro-fecha-form {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .filtro-fecha-form label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+        .filtro-fecha-form input[type="date"] {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .paginacion {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+        .paginacion a { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .paginacion a:hover { text-decoration: underline; }
+        .paginacion-info { color: var(--text-muted); }
     </style>
 </head>
 <body>
@@ -73,7 +173,10 @@
         </div>
         <div class="user-info">
             {{ request.user.username }}
-            <a href="{% url 'padron:logout' %}">Cerrar sesión</a>
+            <form method="post" action="{% url 'padron:logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="link-btn">Cerrar sesión</button>
+            </form>
         </div>
     </header>
 
@@ -85,14 +188,63 @@
 
     {% if puede_ejecutar %}
     <div class="card">
-        <form method="post" action="{% url 'padron:ejecutar_ahora' %}" onsubmit="return confirm('¿Ejecutar la actualización del padrón ahora? Esto sube el archivo real a MisRx.');">
-            {% csrf_token %}
-            <button type="submit" class="btn">Ejecutar ahora</button>
+        <button type="button" class="btn" id="btnAbrirModalEjecutar" title="Genera el archivo del padrón con los datos actuales de GeneXus y lo sube de verdad a MisRx. Usar solo si hace falta forzar una actualización fuera del horario automático.">Ejecutar ahora</button>
+    </div>
+
+    <div class="modal-overlay" id="modalEjecutar">
+        <div class="modal-box">
+            <h2>¿Ejecutar la actualización del padrón?</h2>
+            <p>Esto genera el archivo con los datos actuales y lo sube de verdad a MisRx.</p>
+            <div class="modal-ultima-actualizacion">
+                <span class="label">Última actualización enviada a MisRx</span>
+                <span class="valor">
+                    {% if ultima_ok %}{{ ultima_ok.iniciado_en|date:"d/m/Y" }} — {{ ultima_ok.iniciado_en|date:"H:i" }} hs
+                    {% else %}Todavía no hay ninguna corrida exitosa registrada{% endif %}
+                </span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="btnCancelarEjecutar">Cancelar</button>
+                <form method="post" action="{% url 'padron:ejecutar_ahora' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn">Sí, ejecutar ahora</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if mostrar_buscador_dni %}
+    <div class="card">
+        <h2>Buscar afiliado por DNI</h2>
+        <form method="get" class="buscar-dni-form">
+            <input type="text" name="dni" value="{{ resultado_dni.dni|default:"" }}" placeholder="Número de documento" inputmode="numeric" autocomplete="off">
+            <button type="submit" class="btn">Buscar</button>
         </form>
+        {% if resultado_dni %}
+        <div style="margin-top: 16px;">
+            {% if resultado_dni.activo is None %}
+                <div class="msg error">Todavía no hay ninguna corrida exitosa registrada contra la cual comparar.</div>
+            {% elif resultado_dni.activo %}
+                <div class="msg success">DNI {{ resultado_dni.dni }}: <strong>ACTIVO</strong> en el padrón enviado a MisRx el {{ resultado_dni.fecha_referencia|date:"d/m/Y H:i" }} hs.</div>
+            {% else %}
+                <div class="msg error">DNI {{ resultado_dni.dni }}: <strong>NO figura</strong> en el padrón enviado a MisRx el {{ resultado_dni.fecha_referencia|date:"d/m/Y H:i" }} hs.</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        <p style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">
+            Compara contra lo último que se envió a MisRx, no contra una lectura en vivo (la API de MisRx no expone esa consulta — ver detalle en el plan del proyecto).
+        </p>
     </div>
     {% endif %}
 
     <div class="card">
+        <form method="get" class="filtro-fecha-form">
+            <label for="filtroFecha">Filtrar por fecha</label>
+            <input type="date" id="filtroFecha" name="fecha" value="{{ fecha_filtro }}">
+            <button type="submit" class="btn">Filtrar</button>
+            {% if fecha_filtro %}<a href="{% url 'padron:dashboard' %}" class="btn btn-secondary">Quitar filtro</a>{% endif %}
+        </form>
+
         <table>
             <thead>
                 <tr>
@@ -125,10 +277,43 @@
                     <td>{{ corrida.misrx_estado_descripcion|default:"-" }}</td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="9">Todavía no hay corridas registradas.</td></tr>
+                <tr><td colspan="9">
+                    {% if fecha_filtro %}No hay corridas registradas para esa fecha.{% else %}Todavía no hay corridas registradas.{% endif %}
+                </td></tr>
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if corridas.paginator.num_pages > 1 %}
+        <div class="paginacion">
+            {% if corridas.has_previous %}
+                <a href="?page={{ corridas.previous_page_number }}{% if fecha_filtro %}&fecha={{ fecha_filtro }}{% endif %}">&laquo; Anterior</a>
+            {% endif %}
+            <span class="paginacion-info">Página {{ corridas.number }} de {{ corridas.paginator.num_pages }}</span>
+            {% if corridas.has_next %}
+                <a href="?page={{ corridas.next_page_number }}{% if fecha_filtro %}&fecha={{ fecha_filtro }}{% endif %}">Siguiente &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
+
+    {% if puede_ejecutar %}
+    <script>
+        (function () {
+            var modal = document.getElementById('modalEjecutar');
+            var btnAbrir = document.getElementById('btnAbrirModalEjecutar');
+            var btnCancelar = document.getElementById('btnCancelarEjecutar');
+
+            btnAbrir.addEventListener('click', function () { modal.classList.add('show'); });
+            btnCancelar.addEventListener('click', function () { modal.classList.remove('show'); });
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) modal.classList.remove('show');
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') modal.classList.remove('show');
+            });
+        })();
+    </script>
+    {% endif %}
 </body>
 </html>

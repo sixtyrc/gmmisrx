@@ -12,9 +12,15 @@ def _resumen(run):
     else:
         titulo = "ERROR actualizando el padron"
 
+    if run.disparado_por == run.TRIGGER_MANUAL:
+        quien = run.usuario.username if run.usuario else "desconocido"
+        disparado_por_texto = f"{run.disparado_por} - ejecutado por {quien}"
+    else:
+        disparado_por_texto = run.disparado_por
+
     cuerpo = (
         f"{titulo}\n\n"
-        f"Corrida #{run.pk} ({run.disparado_por})\n"
+        f"Corrida #{run.pk} ({disparado_por_texto})\n"
         f"Estado: {run.estado}\n"
         f"Total consultado en GX: {run.total_consulta_gx}\n"
         f"Total enviado a MisRx: {run.total_enviado_misrx}\n"

@@ -4,6 +4,8 @@ import uuid
 
 import pandas as pd
 from datetime import datetime
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import render
 from django.http import HttpResponse, Http404
 from django.conf import settings
@@ -13,6 +15,17 @@ TEMP_DIR = os.path.join(settings.BASE_DIR, 'tmp_downloads')
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 
+def admin_required(view_func):
+    """Herramienta legacy: solo para administradores (superuser), no para el rol Operador."""
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied("Esta herramienta es solo para administradores.")
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
+
+@login_required
+@admin_required
 def filter_files(request):
     if request.method == 'POST':
         excel_file = request.FILES.get('excel_file')
@@ -124,6 +137,8 @@ def filter_files(request):
     return render(request, 'processor/upload.html')
 
 
+@login_required
+@admin_required
 def download_file(request, file_id):
     temp_path = os.path.join(TEMP_DIR, f"{file_id}.csv")
     if not os.path.exists(temp_path):

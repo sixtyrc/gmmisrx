@@ -22,6 +22,8 @@
 - [x] Usuarios iniciales creados vía `manage.py crear_usuarios_iniciales` (idempotente, usa `ADMIN_USERNAME`/`ADMIN_PASSWORD` de `.env` solo la primera vez): `admin` (superuser, grupo Admin) y `automatizacion` (sin password, no puede loguearse — solo existe para que las corridas automáticas del Task Scheduler queden atribuidas a un usuario real en el historial, no a "usuario: -").
 - [x] Probado end-to-end: login → dashboard → botón "Ejecutar ahora" → sube de verdad a MisRx → mensaje de éxito en el panel → `PadronRun.usuario` correcto. Probado también el rechazo: usuario sin permiso recibe 403 y no ve el botón; usuario del grupo Operador sí puede ejecutar.
 - [x] Deploy y CI/CD documentados: `docs/DEPLOY.md` (bootstrap manual completo: venv, `.env`, migraciones, NSSM con waitress, Caddy, Task Scheduler, runner self-hosted de GitHub Actions) y `.github/workflows/deploy.yml` (push a `main` → git reset --hard → pip install → migrate → reinicia el servicio NSSM). `waitress` agregado como servidor WSGI para Windows (probado localmente). `.env.example` agregado como referencia versionada de las variables necesarias.
+- [x] Confirmación de "Ejecutar ahora" reemplazada por un modal propio (antes era el `confirm()` feo del navegador) que muestra bien visible la fecha/hora de la última actualización exitosa enviada a MisRx antes de dejar confirmar.
+- [x] Buscador de DNI en el panel: informa si un afiliado está activo o no según la última corrida exitosa (`PadronRun.dnis_incluidos`). No es una lectura en vivo contra MisRx (la API no lo permite, ver hallazgo arriba) — queda documentada esa limitación conocida, incluida la duda pendiente sobre truncamientos silenciosos del lado de MisRx.
 - [ ] Falta: **ejecutar** el bootstrap real en el server (clonar, crear `.env` real, migrar, crear usuarios, registrar NSSM/Caddy/Task Scheduler/runner) — todo lo anterior está listo para seguir, pero nadie lo corrió todavía en la máquina de producción. Setear `ALLOWED_HOSTS` ahí con el dominio/IP real (hoy tiene defaults de desarrollo: `localhost,127.0.0.1,testserver`).
 
 ## Objetivo
@@ -55,8 +57,20 @@ Spec real (Swagger 2.0) en `https://www.misvalidaciones.com.ar/static/mvrest.jso
 |---|---|
 | `POST /padrones/cargar/{convenio_id}` | Sube el padrón (`multipart/form-data`, campo `archivo`, CSV/TXT). Responde `{success, data:[...]}`. **Siempre padrón completo**, no incremental (confirmado). |
 | `GET /padrones/registros/{convenio_id}` | Historial de cargas con estado de procesamiento (`padrones_procesa_estado_id/descripcion`) — sirve para confirmar que una carga fue *procesada*, no solo *recibida*. |
-| `GET /consultas/disponibles` + `POST /consultas/consultar/{consulta_id}` | Motor de consultas genéricas habilitadas por MisRx (no usado hoy, candidato a futuro). |
+| `GET /consultas/disponibles` + `POST /consultas/consultar/{consulta_id}` | Motor de consultas genéricas habilitadas por MisRx (probado, ver hallazgo abajo). |
 | `GET /receta/{convenio_id}` y variantes | Consulta de recetas validadas por período/afiliado/DNI (no usado hoy, candidato a futuro para conciliar consumos). |
+
+### Hallazgo (2026-08-03): la API de MisRx no permite leer el padrón actualmente cargado
+
+Se investigó si existe alguna forma de consultar, vía API, el listado de afiliados actualmente cargados en MisRx (equivalente al export manual `MisRxAfiliados.csv` que arma el usuario desde el portal web) — para poder verificar el estado real sin depender de exports manuales. Conclusión: **no existe ese endpoint**, confirmado probando en vivo:
+
+- `GET /padrones/registros/{convenio_id}`: es el **historial de cargas** (qué se subió, cuándo, con qué resultado agregado — `Total Registros en Archivo/Base`, altas/bajas). No lista afiliados individuales. Ya se usa para verificar que cada subida se procesó bien (`misrx_client.obtener_ultimo_registro`).
+- `GET /consultas/disponibles`: para este usuario/convenio (938) devuelve 9 consultas predefinidas, todas de recetas/consumo/farmacias (`Afiliado Consumo Detallado`, `Recetas Digitales`, reportes por período, etc.) — ninguna es un listado de afiliados/padrón.
+- Se probó puntualmente `POST /consultas/consultar/14` ("Afiliado Consumo Detallado", que acepta `nro_afiliado_dni` opcional) con un DNI marcado "Activo" en el export manual y otro marcado "Inactivo": el activo devolvió 0 resultados (nunca validó una receta) y el inactivo devolvió 8 (historial de consumos viejo). Es decir, esta consulta reflda **historial de recetas**, no el estado activo/inactivo del padrón — confirma que no sirve para ese propósito.
+
+Como alternativa, el panel usa como fuente de verdad el `PadronRun` exitoso más reciente (`dnis_incluidos`), que es exactamente lo que se subió y se confirmó procesado por MisRx — ver buscador por DNI en la sección del panel operativo, más abajo.
+
+**Limitación conocida, pendiente:** el buscador por DNI del panel (ver más abajo) compara contra `dnis_incluidos` de la última corrida exitosa — es decir, contra **lo que nosotros enviamos**, no contra lo que MisRx realmente terminó guardando. El usuario reportó casos previos (proceso manual) donde una subida figuraba como procesada correctamente pero los datos habían quedado truncados del lado de MisRx. Sin un endpoint de MisRx que permita leer el padrón real ya cargado, no hay forma de detectar ese escenario específico solo con la API actual — queda como pendiente a resolver (probablemente pidiéndole a MisRx el endpoint, o encontrando otra señal indirecta de integridad, ej. contrastar `Total Registros en Base` de `/padrones/registros` corrida a corrida en busca de saltos no explicados).
 
 ## Reconstrucción de la lógica de origen (GeneXus → SQL directo)
 

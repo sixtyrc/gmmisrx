@@ -87,6 +87,12 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL')
 NOTIFICACIONES_EMAIL_TO = os.environ.get('NOTIFICACIONES_EMAIL_TO')
 
+# OpenWA (WhatsApp self-hosted)
+OPENWA_BASE_URL = os.environ.get('OPENWA_BASE_URL')
+OPENWA_SESSION_ID = os.environ.get('OPENWA_SESSION_ID')
+OPENWA_KEY = os.environ.get('OPENWA_KEY')
+NOTIFICACIONES_WHATSAPP_TO = os.environ.get('NOTIFICACIONES_WHATSAPP_TO')
+
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases

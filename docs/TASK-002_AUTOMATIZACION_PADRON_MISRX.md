@@ -17,7 +17,7 @@
 - [x] Pipeline completo (`manage.py actualizar_padron [--trigger manual|automatico] [--dry-run]`): consulta GX → genera CSV (mismo formato exacto que GeneXus, incluido el detalle real de que la fecha usa guiones y no barras como decía el código fuente) → sube a MisRx → verifica estado → notifica por mail → registra en `PadronRun` con diff de altas/bajas contra la corrida anterior. Probado end-to-end contra producción: MisRx confirmó "Padron procesado correctamente".
 - [x] Tarea programada: `scripts/run_actualizar_padron.bat` (activa el venv, corre `actualizar_padron --trigger automatico`, loguea a `logs/actualizar_padron.log`) probado localmente end-to-end. Falta registrar la tarea en el Programador de Tareas de Windows **del server** cuando se despliegue ahí (ver sección de abajo).
 - [ ] Falta: panel operativo (vistas Django con login, botón "ejecutar ahora", listado de historial) — estilo visual de referencia: login de GM Salud (logo + tarjeta centrada), adaptado a "MisRx".
-- [ ] Falta: WhatsApp (OpenWA) para notificaciones.
+- [x] WhatsApp (OpenWA, servidor self-hosted `openwa.dacio.com.ar`, misma sesión que AgendaTurnosEstetica) implementado en `padron/services/openwa.py`, enganchado best-effort en `notificar_resultado` — **sin probar todavía** porque el servidor OpenWA está caído; con `OPENWA_KEY` vacío el envío simplemente se omite sin romper el pipeline (comportamiento esperado, no error).
 - [ ] Falta: despliegue real de la app al server (hoy se desarrolla y prueba en local, contra las bases remotas).
 
 ## Objetivo

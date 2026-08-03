@@ -1,14 +1,17 @@
 from django.conf import settings
 from django.core.mail import send_mail
 
+from . import openwa
 
-def notificar_resultado(run):
+
+def _resumen(run):
     if run.estado == run.ESTADO_OK:
-        asunto = f"[MisRx] Padron actualizado OK - {run.total_enviado_misrx} registros"
+        titulo = f"Padron actualizado OK - {run.total_enviado_misrx} registros"
     else:
-        asunto = "[MisRx] ERROR actualizando el padron"
+        titulo = "ERROR actualizando el padron"
 
     cuerpo = (
+        f"{titulo}\n\n"
         f"Corrida #{run.pk} ({run.disparado_por})\n"
         f"Estado: {run.estado}\n"
         f"Total consultado en GX: {run.total_consulta_gx}\n"
@@ -20,6 +23,12 @@ def notificar_resultado(run):
     )
     if run.error_mensaje:
         cuerpo += f"\nError:\n{run.error_mensaje}\n"
+    return titulo, cuerpo
+
+
+def notificar_resultado(run):
+    titulo, cuerpo = _resumen(run)
+    asunto = f"[MisRx] {titulo}"
 
     send_mail(
         subject=asunto,
@@ -28,3 +37,7 @@ def notificar_resultado(run):
         recipient_list=[settings.NOTIFICACIONES_EMAIL_TO],
         fail_silently=True,
     )
+
+    # Best-effort: si OpenWA no esta configurado o el servidor esta caido, no rompe nada.
+    if settings.NOTIFICACIONES_WHATSAPP_TO:
+        openwa.send_text(settings.NOTIFICACIONES_WHATSAPP_TO, cuerpo)

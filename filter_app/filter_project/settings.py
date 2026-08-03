@@ -37,6 +37,15 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') if h.strip()]
 
+# Detras de Caddy: Caddy termina el HTTPS y le pasa la conexion al backend en HTTP
+# plano, agregando X-Forwarded-Proto. Sin esto Django cree que el request es HTTP
+# y rechaza el POST del login por CSRF (Origin del navegador dice https, Django
+# cree que es http).
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_TRUSTED_ORIGINS = [
+    f'https://{host}' for host in ALLOWED_HOSTS if host not in ('localhost', '127.0.0.1', 'testserver')
+]
+
 
 # Application definition
 

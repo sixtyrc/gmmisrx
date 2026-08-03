@@ -112,7 +112,11 @@
                 <tr>
                     <td>{{ corrida.iniciado_en|date:"d/m/Y H:i" }}</td>
                     <td>{{ corrida.get_disparado_por_display }}</td>
-                    <td>{{ corrida.usuario.username|default:"-" }}</td>
+                    <td>
+                        {% if corrida.usuario %}{{ corrida.usuario.username }}
+                        {% elif corrida.disparado_por == "automatico" %}automatizacion
+                        {% else %}-{% endif %}
+                    </td>
                     <td><span class="badge {{ corrida.estado }}">{{ corrida.get_estado_display }}</span></td>
                     <td>{{ corrida.total_consulta_gx|default:"-" }}</td>
                     <td>{{ corrida.total_enviado_misrx|default:"-" }}</td>

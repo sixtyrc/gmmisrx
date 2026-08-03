@@ -248,5 +248,6 @@ schtasks /create /tn "MisRx - Actualizar Padron Diario" ^
 ## Estado del repositorio
 
 - Repo: `https://github.com/sixtyrc/gmmisrx`
-- `main`: estado inicial (baseline previo a esta automatización), no se toca hasta nuevo aviso.
+- `main`: estado inicial (baseline previo a esta automatización), congelada para siempre, no se despliega desde ahí.
 - `dev`: rama de trabajo activa para todo lo de este documento.
+- `prod`: rama de despliegue — el server corre esta rama. `dev` se mergea acá cuando algo está probado y listo, y ese push dispara el deploy automático (ver `docs/DEPLOY.md`).

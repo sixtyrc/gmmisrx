@@ -5,25 +5,30 @@
 ## Arquitectura del despliegue
 
 ```
-GitHub (push a main)
-   │
-   ▼
-Self-hosted runner de GitHub Actions (corre EN el mismo Windows Server)
-   │  git pull + pip install + migrate + reiniciar servicio
-   ▼
-Servicio NSSM "gmmisrx-panel" ── waitress (WSGI) ── Django (padron + processor)
-   │
-   ▼
-Caddy (reverse proxy HTTPS) ← usuarios entran por acá
+dev (rama de trabajo) ──merge──▶ prod (rama de despliegue) ──push──▶ GitHub
+                                                                          │
+                                                                          ▼
+                                          Self-hosted runner de GitHub Actions (corre EN el mismo Windows Server)
+                                             │  git reset --hard origin/prod + pip install + migrate + reiniciar servicio
+                                             ▼
+                                          Servicio NSSM "gmmisrx-panel" ── waitress (WSGI) ── Django (padron + processor)
+                                             │
+                                             ▼
+                                          Caddy (reverse proxy HTTPS) ← usuarios entran por acá
 
 Aparte, sin relación con el push:
 Windows Task Scheduler ── scripts/run_actualizar_padron.bat ── 15:30 hs ── actualizar_padron --trigger automatico
 ```
 
+Tres ramas, cada una con un rol fijo:
+- **`main`**: baseline histórico congelado (estado del proyecto antes de esta automatización). No se toca nunca más, ni se despliega desde ahí.
+- **`dev`**: rama de trabajo activa, todo el desarrollo pasa por acá primero.
+- **`prod`**: rama de despliegue. Un push acá (normalmente un merge desde `dev` ya probado) es lo que dispara el deploy automático al server — es la única rama que el server realmente corre.
+
 Dos mecanismos separados a propósito:
 - **NSSM**: el panel web, un proceso que queda corriendo siempre (como sus otras apps).
 - **Task Scheduler**: la actualización diaria del padrón, un job que corre y termina (no debe quedar como servicio).
-- **Self-hosted runner de GitHub Actions**: automatiza que cada push a `main` actualice el código del panel y reinicie el servicio — no toca la tarea programada (esa se registra una sola vez, no cambia con cada deploy).
+- **Self-hosted runner de GitHub Actions**: automatiza que cada push a `prod` actualice el código del panel y reinicie el servicio — no toca la tarea programada (esa se registra una sola vez, no cambia con cada deploy).
 
 ## Antes de tocar nada: verificar qué ya existe en el server
 
@@ -48,7 +53,7 @@ Asumiendo que se clona en `C:\apps\gmmisrx` — **ajustar la ruta a la convenci�
 cd C:\apps
 git clone https://github.com/sixtyrc/gmmisrx.git
 cd gmmisrx
-git checkout main    # o dev, segun corresponda al momento del deploy
+git checkout prod    # el server SIEMPRE corre esta rama, nunca main ni dev
 
 cd filter_app
 python -m venv venv
@@ -124,15 +129,15 @@ Con esto, el runner queda escuchando jobs de este repo todo el tiempo, como un s
 
 ## Despliegues siguientes (automáticos)
 
-Con el runner instalado, cada `push` a `main` dispara `.github/workflows/deploy.yml`, que:
-1. Hace `git fetch` + `git reset --hard origin/main` en `C:\apps\gmmisrx` (sin tocar `.env`, `logs/`, `padron_archivos/` — están en `.gitignore`, `git reset --hard` no los toca).
+Con el runner instalado, cada `push` a `prod` dispara `.github/workflows/deploy.yml`, que:
+1. Hace `git fetch` + `git reset --hard origin/prod` en `C:\apps\gmmisrx` (sin tocar `.env`, `logs/`, `padron_archivos/` — están en `.gitignore`, `git reset --hard` no los toca).
 2. Reinstala dependencias (`pip install -r requirements.txt`).
 3. Corre `migrate`.
 4. Reinicia el servicio NSSM (`nssm restart gmmisrx-panel`).
 
 También se puede disparar a mano desde GitHub (pestaña Actions → el workflow → "Run workflow"), sin esperar un push.
 
-**Importante**: como `main` "no se toca hasta nuevo aviso" (ver `docs/TASK-002...`), este workflow queda armado y listo pero no se va a disparar hasta el día que se decida mergear `dev` → `main`. Se puede probar antes con "Run workflow" manual apuntando a `dev` si hace falta validar el pipeline de deploy en sí, ajustando el `ref` en el dispatch.
+**Flujo normal de trabajo**: se desarrolla y prueba en `dev`, y cuando algo está listo para producción se mergea `dev` → `prod` y se pushea `prod` — eso es lo que efectivamente actualiza el server. `main` queda congelada como baseline histórico, no participa del flujo de deploy.
 
 ## Rollback
 
@@ -148,7 +153,7 @@ cd filter_app
 nssm restart gmmisrx-panel
 ```
 
-O simplemente volver a correr el workflow contra un commit anterior de `main` (`workflow_dispatch` con ese `ref`).
+O simplemente volver a correr el workflow contra un commit anterior de `prod` (`workflow_dispatch` con ese `ref`).
 
 ## Notas de seguridad
 

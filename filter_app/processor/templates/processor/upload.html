@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtro de Afiliados</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --bg-color: #F0F4F8;
+            --card-bg: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+            --error: #EF4444;
+            --success: #10B981;
+            --success-hover: #059669;
+            --info-bg: #EFF6FF;
+            --info-border: #BFDBFE;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 480px;
+            transition: all 0.3s ease;
+        }
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+        p.subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+        .form-group { margin-bottom: 24px; }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .file-upload-wrapper {
+            border: 2px dashed var(--border-color);
+            border-radius: 12px;
+            padding: 24px 20px;
+            text-align: center;
+            background-color: #F8FAFC;
+            transition: all 0.2s ease;
+            position: relative;
+            cursor: pointer;
+        }
+        .file-upload-wrapper:hover {
+            border-color: var(--primary);
+            background-color: var(--info-bg);
+        }
+        .file-upload-wrapper.has-file {
+            border-color: var(--success);
+            background-color: #F0FDF4;
+        }
+        input[type="file"] {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            opacity: 0; cursor: pointer;
+        }
+        .file-text {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            pointer-events: none;
+        }
+        .file-selected {
+            font-weight: 600;
+            color: var(--primary);
+            margin-top: 8px;
+            display: block;
+            pointer-events: none;
+            word-break: break-all;
+            font-size: 0.85rem;
+        }
+        .icon-upload {
+            width: 28px; height: 28px;
+            fill: var(--text-muted);
+            margin-bottom: 6px;
+            transition: fill 0.2s;
+        }
+        .file-upload-wrapper:hover .icon-upload { fill: var(--primary); }
+        .file-upload-wrapper.has-file .icon-upload { fill: var(--success); }
+
+        .btn-submit {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            margin-top: 8px;
+        }
+        .btn-submit:hover { background-color: var(--primary-hover); }
+        .btn-submit:active { transform: scale(0.98); }
+
+        .error-message {
+            background-color: #FEF2F2;
+            color: var(--error);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 0.85rem;
+            border: 1px solid #FECACA;
+        }
+
+        /* ---- Stats Panel ---- */
+        .stats-panel {
+            margin-top: 24px;
+            background: linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%);
+            border: 1px solid var(--info-border);
+            border-radius: 12px;
+            padding: 24px 20px;
+            animation: fadeSlideIn 0.4s ease-out;
+        }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .stats-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stats-title svg { width: 20px; height: 20px; fill: var(--primary); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .stat-value.blue { color: var(--primary); }
+        .stat-value.red { color: var(--error); }
+        .stat-value.green { color: var(--success); }
+        .stat-value.orange { color: #F59E0B; }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .btn-download {
+            display: block;
+            width: 100%;
+            background-color: var(--success);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .btn-download:hover { background-color: var(--success-hover); }
+        .btn-download:active { transform: scale(0.98); }
+
+        .filename-tag {
+            display: block;
+            text-align: center;
+            margin-top: 10px;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Filtro de Padrón</h1>
+        <p class="subtitle">Descargá el padrón maestro excluyendo los afiliados dados de baja.</p>
+
+        {% if error %}
+        <div class="error-message">{{ error }}</div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="form-group">
+                <label>1. Archivo de Bajas (Excel)</label>
+                <div class="file-upload-wrapper" id="drop-excel">
+                    <svg class="icon-upload" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM18 20H6V4h6v6h6v10z"/></svg><br>
+                    <span class="file-text">Seleccioná o arrastrá el .xlsx</span>
+                    <span class="file-selected" id="excel-filename"></span>
+                    <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.xls" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>2. Padrón Maestro (CSV)</label>
+                <div class="file-upload-wrapper" id="drop-csv">
+                    <svg class="icon-upload" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM18 20H6V4h6v6h6v10z"/></svg><br>
+                    <span class="file-text">Seleccioná o arrastrá el .csv</span>
+                    <span class="file-selected" id="csv-filename"></span>
+                    <input type="file" name="csv_file" id="csv_file" accept=".csv" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Procesar</button>
+        </form>
+
+        {% if processed %}
+        <div class="stats-panel">
+            <div class="stats-title">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zM7 10h2v7H7zm4-3h2v10h-2zm4 6h2v4h-2z"/></svg>
+                Resultado del Procesamiento
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value blue">{{ total_excel }}</div>
+                    <div class="stat-label">DNIs en Excel</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value blue">{{ total_csv_original }}</div>
+                    <div class="stat-label">Registros en CSV</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value red">{{ total_removed }}</div>
+                    <div class="stat-label">Eliminados</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value green">{{ total_remaining }}</div>
+                    <div class="stat-label">Restantes</div>
+                </div>
+            </div>
+            {% if dnis_not_found > 0 %}
+            <div style="background:#FFFBEB; border:1px solid #FDE68A; border-radius:10px; padding:14px; margin-bottom:20px; font-size:0.85rem; color:#92400E; display: flex; flex-direction: column; gap: 8px;">
+                <div>
+                    ⚠️ <strong>{{ dnis_not_found }}</strong> DNI del Excel no se encontraron en el CSV (puede que ya no estuvieran).
+                </div>
+                {% if file_id_not_found %}
+                <a href="{% url 'download_file' file_id_not_found %}?name={{ not_found_filename }}" style="color: #B45309; text-decoration: underline; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; width: fit-content;">
+                    ⬇️ Descargar reporte de no encontrados (CSV)
+                </a>
+                {% endif %}
+            </div>
+            {% endif %}
+            <a href="{% url 'download_file' file_id %}?name={{ output_filename }}" class="btn-download">
+                ⬇ Descargar CSV Filtrado
+            </a>
+            <span class="filename-tag">{{ output_filename }}</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function bindFileInput(inputId, labelId, wrapperId) {
+            const input = document.getElementById(inputId);
+            const label = document.getElementById(labelId);
+            const wrapper = document.getElementById(wrapperId);
+            input.addEventListener('change', function() {
+                if (this.files[0]) {
+                    label.textContent = this.files[0].name;
+                    wrapper.classList.add('has-file');
+                } else {
+                    label.textContent = '';
+                    wrapper.classList.remove('has-file');
+                }
+            });
+        }
+        bindFileInput('excel_file', 'excel-filename', 'drop-excel');
+        bindFileInput('csv_file', 'csv-filename', 'drop-csv');
+    </script>
+</body>
+</html>

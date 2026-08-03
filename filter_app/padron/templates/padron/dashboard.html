@@ -30,6 +30,8 @@
             align-items: center;
             margin-bottom: 24px;
         }
+        header .brand { display: flex; align-items: center; gap: 14px; }
+        header .brand img { height: 36px; }
         header h1 { font-size: 20px; font-weight: 700; }
         header .user-info { font-size: 13px; color: var(--text-muted); }
         header .user-info a { color: var(--primary); text-decoration: none; margin-left: 12px; }
@@ -65,7 +67,10 @@
 </head>
 <body>
     <header>
-        <h1>Gestión MisRx - Actualización de Padrón</h1>
+        <div class="brand">
+            <img src="https://ss-static-01.esmsv.com/id/163038/galeriaimagenes/obtenerimagen/?width=277&height=64&id=sitio_logo&ultimaModificacion=2026-08-03+11%3A32%3A28" alt="GM Salud">
+            <h1>Gestión MisRx - Actualización de Padrón</h1>
+        </div>
         <div class="user-info">
             {{ request.user.username }}
             <a href="{% url 'padron:logout' %}">Cerrar sesión</a>

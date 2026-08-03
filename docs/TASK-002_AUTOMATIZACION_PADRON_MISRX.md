@@ -1,6 +1,23 @@
 # TASK-002_AUTOMATIZACION_PADRON_MISRX: Plan de automatización de actualización del padrón
 
-> Estado: **PLAN, sin implementar todavía.** Este documento se actualiza a medida que se valida cada parte. Vive en la rama `dev` (no se toca `main` hasta nuevo aviso).
+> Estado: **EN IMPLEMENTACIÓN.** Este documento se actualiza a medida que se completa cada fase. Vive en la rama `dev` (no se toca `main` hasta nuevo aviso).
+
+## Estado de implementación (ir tildando a medida que se avanza)
+
+- [x] Query SQL final validada contra la base real de GX (`DISTINCT ON (IndividuoId) ORDER BY AfiliadoFechaAlta DESC`, filtro `AfiliadoConvenio = ANY(convenios_validos)`) — 1181 filas, incluye los 12 casos de excepción automáticamente, resuelve el duplicado de Facundo Altamirano.
+- [x] Usuario Postgres de solo lectura (`misrx_padron_ro`) creado y probado (solo `Afiliado`/`Individuo`/`Plan`, confirmado que no puede escribir).
+- [x] Base propia de la app creada y probada, local (`misrx_padron_app` en Postgres local, usuario `avicola`) y en el server de producción (`186.125.169.77`, usuario `misrx_padron_app`, lectura/escritura confirmada).
+- [x] Encoding UTF-8 validado de punta a punta (Ñ, Ü) entre Postgres GX → Python → base propia — sin mojibake.
+- [x] Credenciales MisRx (Basic Auth + `convenio_id=938`) probadas contra `GET /padrones/registros/{convenio_id}` — funcionando.
+- [x] Corrección puntual del 2026-08-03 ya subida a MisRx (`AfiliadoGM_Ospena_20260803_104755_CORREGIDO.csv`, 1175 registros, 12 altas, procesado correctamente por MisRx).
+- [x] App Django `padron` creada dentro de `filter_app`, con modelos `PadronRun` (historial de corridas), `AfiliadoExcepcion` (casos tratados/pendientes) y `AuditLogEntry` (auditoría de login/acciones). Migraciones corridas contra Postgres local.
+- [x] `filter_app` migrado de SQLite a Postgres (via `.env`, mismas credenciales que la base propia).
+- [ ] Resend (mail): falta completar `RESEND_API_KEY`/`RESEND_FROM` en `.env` y correr la prueba de envío (`scripts/test_resend_mail.py`).
+- [ ] Pendiente resolver: DNI duplicado `53394899` (Facundo Altamirano, dos `Nro Afiliado`) — la query final ya lo resuelve solo (se queda con el de alta más reciente), no requiere acción manual adicional.
+- [ ] Falta: pipeline completo (management command que encadene query → generar archivo → subir a MisRx → verificar estado → notificar → registrar en `PadronRun`/`AfiliadoExcepcion`).
+- [ ] Falta: panel operativo (vistas Django con login, botón "ejecutar ahora", listado de historial).
+- [ ] Falta: WhatsApp (OpenWA) para notificaciones.
+- [ ] Falta: tarea programada diaria en el server (NSSM/Task Scheduler) y despliegue real.
 
 ## Objetivo
 
@@ -45,26 +62,38 @@ Objeto GeneXus real: Procedure `WPMisRxAfiliadosExportCSV4` (dentro de `afiliado
 **Query propuesta (a confirmar nombres físicos reales de columnas contra la base, ya probada informalmente en pgAdmin con éxito):**
 
 ```sql
+WITH afiliado_vigente AS (
+    -- Por cada persona (IndividuoId), se queda con el registro de Afiliado
+    -- MAS RECIENTE por fecha de alta. Esto resuelve el caso de personas con
+    -- un registro viejo en un convenio (ej. OSFOT) y uno nuevo en otro (NAV):
+    -- gana el mas reciente, sin importar si el viejo tambien estaba activo.
+    SELECT DISTINCT ON (a.IndividuoId)
+        a.AfiliadoId, a.IndividuoId, a.PlanId,
+        a.AfiliadoEstado, a.AfiliadoConvenio, a.AfiliadoBaja,
+        a.AfiliadoFechaAlta, a.AfiliadoPMI, a.AfiliadoOncologico
+    FROM Afiliado a
+    ORDER BY a.IndividuoId, a.AfiliadoFechaAlta DESC
+)
 SELECT
     i.IndividuoDNI,
-    a.AfiliadoId,
+    v.AfiliadoId,
     i.IndividuoNombre,
     i.IndividuoApellido,
     i.IndividuoSexo,
     i.IndividuoFecNac,
-    a.AfiliadoPMI,
-    a.AfiliadoOncologico,
+    v.AfiliadoPMI,
+    v.AfiliadoOncologico,
     p.PlanCodigoMisrx,
     p.PlanDescripcion
-FROM Afiliado a
-JOIN Individuo i ON i.IndividuoId = a.IndividuoId
-JOIN Plan p       ON p.PlanId = a.PlanId
-WHERE a.AfiliadoEstado = 'ACT'
-  AND a.AfiliadoBaja = 'N'
-  AND a.AfiliadoConvenio = :convenio_param   -- 'NAV' por defecto, PARAMETRIZABLE (env var), no hardcodear
+FROM afiliado_vigente v
+JOIN Individuo i ON i.IndividuoId = v.IndividuoId
+JOIN Plan p       ON p.PlanId = v.PlanId
+WHERE v.AfiliadoEstado = 'ACT'
+  AND v.AfiliadoBaja = 'N'
+  AND v.AfiliadoConvenio = ANY(:convenios_validos)   -- ['NAV'] hoy, PARAMETRIZABLE (lista en config/.env), no hardcodear
 ```
 
-`AfiliadoConvenio` es atributo propio y directo de `Afiliado` (dominio `Convenios`, 3 caracteres: `FOT`=OSFOT, `NAV`=OSPENA) — no requiere joins extra. Parametrizable para poder volver a mandar todo, o sumar otro convenio, sin tocar código.
+`AfiliadoConvenio` es atributo propio y directo de `Afiliado` (dominio `Convenios`, 3 caracteres: `FOT`=OSFOT, `NAV`=OSPENA) — no requiere joins extra. `:convenios_validos` es una lista parametrizable (hoy solo `NAV`; `FOT` es el que hay que excluir) para poder sumar/cambiar convenios sin tocar código. La regla "me quedo con el alta más reciente por persona" reemplaza cualquier necesidad de cruce manual por DNI contra otro convenio: si alguien tiene alta vieja en OSFOT y alta nueva en NAV, automáticamente prevalece la de NAV.
 
 ### Formato de salida a replicar exactamente (mismo separador/orden/transformación que genera GeneXus hoy)
 
@@ -107,6 +136,25 @@ Se confirmó contra `MisRxAfiliados.csv`: **las 12 figuran `Inactivo` en MisRx a
 Lista de las 12 personas (DNI): `30571805, 35037263, 40031628, 40501665, 41355695, 53228021, 57199786, 57435309, 58629764, 59147919, 70176606, 70450371`. Reportes completos (con nombres) guardados localmente en `gx/reporte_sospechosos_*.csv` — **no versionados en git** (contienen DNI/nombres reales).
 
 **Conclusión: la query directa por convenio no es solo más simple de automatizar, es más correcta que el proceso manual vigente.**
+
+### Corrección aplicada manualmente (2026-08-03)
+
+El usuario verificó las 12 personas contra el sistema y confirmó que deben estar habilitadas para consumir recetas. Se generó `gx/AfiliadoGM_Ospena_20260803_104755_CORREGIDO.csv` (1163 restantes del cruce de hoy + las 12 excepciones = 1175) para subir manualmente a MisRx y dejar la base al día mientras se implementa el proceso automático. Este archivo no reemplaza el análisis de la causa raíz (ya corregida en el diseño de la query de arriba), es solo el parche puntual del dato ya cargado.
+
+Nota aparte detectada al armar este archivo: el DNI `53394899` (FACUNDO EZEQUIEL ALTAMIRANO) figura duplicado en el CSV de origen de hoy con dos `Nro Afiliado` distintos (`3402` y `1631`), mismo plan — no relacionado a OSFOT/NAV, es un dato preexistente en el reporte de GeneXus. Queda pendiente de decidir (aplicando la misma regla de "alta más reciente" cuando se tenga esa fecha disponible en la query).
+
+## Proceso de verificación y auditoría de excepciones (para que esto no vuelva a pasar desapercibido)
+
+Aunque la query con `DISTINCT ON (IndividuoId) ORDER BY AfiliadoFechaAlta DESC` resuelve el caso general hacia adelante, el proceso automático debe incluir una verificación activa en cada corrida, para detectar inconsistencias entre "lo que el sistema dice que debería estar activo" y "lo que MisRx tiene cargado realmente" — por si aparece un caso nuevo de la misma familia (o cualquier otro tipo de desfasaje).
+
+**Cada corrida debe:**
+1. Calcular el padrón vigente (query de arriba).
+2. Comparar contra el estado actual reportado por MisRx (activos/inactivos) para detectar diferencias:
+   - **Personas que deberían estar activas y no lo están** → caso a informar y corregir (el mismo patrón que las 12 de hoy).
+   - **Personas que ya no aparecen en el padrón vigente porque se dieron de baja legítimamente** → esperado, **no es una anomalía**, se registra como baja normal, no se alerta como error.
+3. Mantener un registro persistente de excepciones detectadas (tabla simple: DNI, fecha de detección, motivo, fecha de resolución, estado `pendiente`/`tratado`).
+   - Un caso ya marcado `tratado` (como estas 12, una vez subidas) **no se vuelve a informar** en corridas futuras, aunque el patrón de causa (alta vieja en otro convenio) sea el mismo — solo se informan casos **nuevos** no vistos antes.
+4. Al terminar cada actualización: informar el resultado (mail/WhatsApp) y **dejar registro en una bitácora** (mismo formato que la bitácora de `TASK-001`, o una tabla dedicada) con fecha, totales, y el detalle de excepciones nuevas encontradas/tratadas ese día.
 
 ## Infraestructura de despliegue
 

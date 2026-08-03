@@ -1,3 +1,5 @@
+import threading
+
 from django.conf import settings
 from django.core.mail import send_mail
 
@@ -38,6 +40,12 @@ def notificar_resultado(run):
         fail_silently=True,
     )
 
-    # Best-effort: si OpenWA no esta configurado o el servidor esta caido, no rompe nada.
+    # Best-effort y en background: si el servidor OpenWA esta caido o tarda, no
+    # debe demorar ni romper el pipeline principal (que ya termino su trabajo).
     if settings.NOTIFICACIONES_WHATSAPP_TO:
-        openwa.send_text(settings.NOTIFICACIONES_WHATSAPP_TO, cuerpo)
+        hilo = threading.Thread(
+            target=openwa.send_text,
+            args=(settings.NOTIFICACIONES_WHATSAPP_TO, cuerpo),
+            daemon=True,
+        )
+        hilo.start()

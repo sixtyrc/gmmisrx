@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-@gk3axpqo6za(ndz^$xs^-6p5a!c3#38ro%$9!98d=jx$(_8ef
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',') if h.strip()]
 
 
 # Application definition
@@ -74,6 +74,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'filter_project.wsgi.application'
+
+LOGIN_URL = 'padron:login'
+LOGIN_REDIRECT_URL = 'padron:dashboard'
 
 
 # Email (Resend via SMTP)
@@ -123,6 +126,7 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 12},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',

@@ -46,6 +46,9 @@ class PadronRun(models.Model):
 
     class Meta:
         ordering = ["-iniciado_en"]
+        permissions = [
+            ("can_run_padron", "Puede ejecutar la actualizacion del padron manualmente"),
+        ]
 
     def __str__(self):
         return f"Corrida {self.pk} ({self.disparado_por}, {self.estado})"

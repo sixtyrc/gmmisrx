@@ -148,6 +148,8 @@
             margin-bottom: 18px;
         }
         .filtro-fecha-form label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+        .proxima-corrida { margin-left: auto; font-size: 13px; color: var(--text-muted); }
+        .proxima-corrida strong { color: var(--text-main); }
         .filtro-fecha-form input[type="date"] {
             padding: 10px 12px;
             border: 1px solid var(--border-color);
@@ -253,6 +255,7 @@
             <input type="date" id="filtroFecha" name="fecha" value="{{ fecha_filtro }}">
             <button type="submit" class="btn">Filtrar</button>
             {% if fecha_filtro %}<a href="{% url 'padron:dashboard' %}" class="btn btn-secondary">Quitar filtro</a>{% endif %}
+            <span class="proxima-corrida" id="proximaCorrida" data-objetivo="{{ proxima_corrida_automatica_iso }}" title="Corrida automática diaria a las 15:30 hs">Calculando...</span>
         </form>
 
         <table>
@@ -331,6 +334,28 @@
                 this.value = this.value.replace(/[^0-9]/g, '');
             });
         });
+    </script>
+    <script>
+        (function () {
+            var el = document.getElementById('proximaCorrida');
+            if (!el) return;
+            var objetivo = new Date(el.dataset.objetivo);
+
+            function actualizar() {
+                var msRestantes = objetivo - new Date();
+                if (msRestantes <= 0) {
+                    el.textContent = 'La próxima actualización automática está por dispararse...';
+                    return;
+                }
+                var totalMinutos = Math.floor(msRestantes / 60000);
+                var horas = Math.floor(totalMinutos / 60);
+                var minutos = totalMinutos % 60;
+                el.innerHTML = 'Próxima actualización automática en <strong>' + horas + 'h ' + minutos + 'm</strong>';
+            }
+
+            actualizar();
+            setInterval(actualizar, 30000);
+        })();
     </script>
 </body>
 </html>

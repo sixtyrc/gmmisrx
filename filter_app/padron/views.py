@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -7,6 +7,7 @@ from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_POST
 
@@ -23,6 +24,20 @@ MOSTRAR_BUSCADOR_DNI = False
 
 def _client_ip(request):
     return request.META.get("REMOTE_ADDR")
+
+
+# Horario fijo de la tarea programada (Windows Task Scheduler, ver docs/DEPLOY.md)
+# - no hay forma de leerlo en vivo desde Django, es solo informativo en el panel.
+HORA_CORRIDA_AUTOMATICA = (15, 30)
+
+
+def _proxima_corrida_automatica():
+    ahora = timezone.localtime()
+    hora, minuto = HORA_CORRIDA_AUTOMATICA
+    proxima = ahora.replace(hour=hora, minute=minuto, second=0, microsecond=0)
+    if proxima <= ahora:
+        proxima += timedelta(days=1)
+    return proxima
 
 
 @login_required
@@ -60,6 +75,7 @@ def dashboard(request):
         "resultado_dni": resultado_dni,
         "mostrar_buscador_dni": MOSTRAR_BUSCADOR_DNI,
         "fecha_filtro": fecha_filtro,
+        "proxima_corrida_automatica_iso": _proxima_corrida_automatica().isoformat(),
     })
 
 

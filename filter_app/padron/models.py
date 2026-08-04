@@ -94,10 +94,12 @@ class AuditLogEntry(models.Model):
     ACCION_LOGIN_OK = "login_ok"
     ACCION_LOGIN_FAIL = "login_fail"
     ACCION_RUN_MANUAL = "run_manual"
+    ACCION_VADEMECUM_ACTUALIZADO = "vademecum_upd"
     ACCION_CHOICES = [
         (ACCION_LOGIN_OK, "Login exitoso"),
         (ACCION_LOGIN_FAIL, "Login fallido"),
         (ACCION_RUN_MANUAL, "Ejecucion manual disparada"),
+        (ACCION_VADEMECUM_ACTUALIZADO, "Vademecum actualizado"),
     ]
 
     timestamp = models.DateTimeField(auto_now_add=True)
@@ -114,3 +116,96 @@ class AuditLogEntry(models.Model):
 
     def __str__(self):
         return f"{self.timestamp} - {self.accion}"
+
+
+class CronicoLog(models.Model):
+    """Auditoria de operaciones sobre prescripciones cronicas en MisRx (feature
+    experimental: el comportamiento real de 'baja' via API todavia no esta
+    confirmado, por eso se guarda el payload y la respuesta cruda completa)."""
+
+    ACCION_ALTA = "alta"
+    ACCION_BAJA = "baja"
+    ACCION_ROLLBACK = "rollback"
+    ACCION_CHOICES = [
+        (ACCION_ALTA, "Alta/Modificacion"),
+        (ACCION_BAJA, "Baja"),
+        (ACCION_ROLLBACK, "Rollback (admin)"),
+    ]
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    accion = models.CharField(max_length=10, choices=ACCION_CHOICES)
+    dni = models.CharField(max_length=20, blank=True)
+    nro_afiliado = models.CharField(max_length=20, blank=True)
+    # Snapshot de como estaba el registro en MisRx ANTES de esta operacion
+    # (null en un alta nueva, ya que ahi no habia nada antes). Es lo que permite
+    # reconstruir a mano un rollback si una baja/edicion fue un error.
+    estado_anterior = models.JSONField(null=True, blank=True)
+    payload_enviado = models.JSONField(null=True, blank=True)
+    status_code_misrx = models.IntegerField(null=True, blank=True)
+    respuesta_misrx = models.TextField(blank=True)
+    exitoso = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-timestamp"]
+        permissions = [
+            ("can_manage_cronicos", "Puede cargar/dar de baja prescripciones cronicas en MisRx"),
+        ]
+
+    def __str__(self):
+        return f"{self.timestamp} - {self.accion} - {self.dni}"
+
+
+class ConsumoConsultaLog(models.Model):
+    """Auditoria de consultas de recetas/consumo por DNI (GET /consultas/consultar/14).
+
+    A diferencia de CronicoLog no hay nada que revertir (es de solo lectura),
+    por eso no tiene estado_anterior/payload_enviado - solo registra quien
+    consulto que DNI y cuando, para trazabilidad de acceso a datos de recetas."""
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL
+    )
+    dni = models.CharField(max_length=20, blank=True)
+    total_recetas = models.IntegerField(null=True, blank=True)
+    exitoso = models.BooleanField(default=False)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+        permissions = [
+            ("can_view_consumos", "Puede consultar recetas y consumos por DNI en MisRx"),
+        ]
+
+    def __str__(self):
+        return f"{self.timestamp} - {self.dni}"
+
+
+class VademecumItem(models.Model):
+    """Catalogo Alfabeta (producto/monodroga) para buscar por nombre en vez de
+    tener que conocer de memoria monodroga_id/producto_id. Se carga con
+    `manage.py cargar_vademecum` desde una planilla externa, no se edita a mano."""
+
+    producto_id = models.BigIntegerField(unique=True)
+    nombre_producto = models.CharField(max_length=255)
+    presentacion = models.CharField(max_length=255, blank=True)
+    laboratorio = models.CharField(max_length=255, blank=True)
+    troquel = models.CharField(max_length=50, blank=True)
+    codigobarra = models.CharField(max_length=50, blank=True)
+    monodroga_id = models.BigIntegerField()
+    monodroga_nombre = models.CharField(max_length=255)
+    potencia = models.CharField(max_length=100, blank=True)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["monodroga_nombre"]),
+            models.Index(fields=["nombre_producto"]),
+            models.Index(fields=["monodroga_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre_producto} ({self.monodroga_nombre})"

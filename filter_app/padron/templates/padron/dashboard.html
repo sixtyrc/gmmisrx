@@ -33,8 +33,13 @@
         header .brand { display: flex; align-items: center; gap: 14px; }
         header .brand img { height: 36px; }
         header h1 { font-size: 20px; font-weight: 700; }
-        header .user-info { font-size: 13px; color: var(--text-muted); }
-        header .user-info a { color: var(--primary); text-decoration: none; margin-left: 12px; }
+        header .user-info { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--text-muted); }
+        header .topnav { display: flex; align-items: center; gap: 20px; font-size: 13px; }
+        header .topnav a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        header .topnav a:hover { text-decoration: underline; }
+        header .topnav .topnav-current { color: var(--text-main); font-weight: 700; }
+        .user-badge { display: flex; align-items: center; gap: 8px; }
+        .user-badge strong { color: var(--text-main); font-weight: 700; }
         .link-btn {
             background: none;
             border: none;
@@ -171,8 +176,13 @@
             <img src="https://ss-static-01.esmsv.com/id/163038/galeriaimagenes/obtenerimagen/?width=277&height=64&id=sitio_logo&ultimaModificacion=2026-08-03+11%3A32%3A28" alt="GM Salud">
             <h1>Gestión MisRx - Actualización de Padrón</h1>
         </div>
+        <nav class="topnav">
+            <span class="topnav-current">Padrón</span>
+            {% if request.user.is_superuser or perms.padron.can_manage_cronicos %}<a href="{% url 'padron:cronicos' %}">Crónicos</a>{% endif %}
+            {% if request.user.is_superuser or perms.padron.can_view_consumos %}<a href="{% url 'padron:consumos' %}">Recetas y consumos</a>{% endif %}
+        </nav>
         <div class="user-info">
-            {{ request.user.username }}
+            <span class="user-badge">Usuario: <strong>{{ request.user.username }}</strong></span>
             <form method="post" action="{% url 'padron:logout' %}" style="display:inline;">
                 {% csrf_token %}
                 <button type="submit" class="link-btn">Cerrar sesión</button>
@@ -217,7 +227,7 @@
     <div class="card">
         <h2>Buscar afiliado por DNI</h2>
         <form method="get" class="buscar-dni-form">
-            <input type="text" name="dni" value="{{ resultado_dni.dni|default:"" }}" placeholder="Número de documento" inputmode="numeric" autocomplete="off">
+            <input type="text" name="dni" value="{{ resultado_dni.dni|default:"" }}" placeholder="Número de documento" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" data-solo-numeros>
             <button type="submit" class="btn">Buscar</button>
         </form>
         {% if resultado_dni %}
@@ -315,5 +325,12 @@
         })();
     </script>
     {% endif %}
+    <script>
+        document.querySelectorAll('input[data-solo-numeros]').forEach(function (el) {
+            el.addEventListener('input', function () {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        });
+    </script>
 </body>
 </html>

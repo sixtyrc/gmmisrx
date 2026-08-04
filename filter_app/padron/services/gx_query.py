@@ -61,3 +61,38 @@ def obtener_padron_vigente(convenios_validos):
         return filas
     finally:
         conn.close()
+
+
+# La API de MisRx no acepta DNI como filtro en /prescripcion (solo nro_afiliado
+# o prescripcion_id) - se resuelve DNI -> AfiliadoId contra GX antes de consultarla.
+QUERY_AFILIADO_POR_DNI = """
+SELECT DISTINCT ON (a.IndividuoId)
+    i.IndividuoDNI      AS dni,
+    a.AfiliadoId        AS nro_afiliado,
+    i.IndividuoNombre   AS nombres,
+    i.IndividuoApellido AS apellido,
+    a.AfiliadoEstado    AS estado,
+    (a.AfiliadoEstado = 'ACT' AND a.AfiliadoBaja = 'N') AS activo,
+    a.AfiliadoConvenio  AS convenio,
+    p.PlanCodigoMisrx   AS plan_codigo
+FROM Afiliado a
+JOIN Individuo i ON i.IndividuoId = a.IndividuoId
+JOIN Plan p       ON p.PlanId = a.PlanId
+WHERE i.IndividuoDNI = %s
+ORDER BY a.IndividuoId, a.AfiliadoFechaAlta DESC
+"""
+
+
+def buscar_afiliado_por_dni(dni):
+    """Devuelve el registro de Afiliado mas reciente para ese DNI (cualquier estado/convenio), o None."""
+    conn = _conexion()
+    try:
+        cur = conn.cursor()
+        cur.execute(QUERY_AFILIADO_POR_DNI, (dni,))
+        fila = cur.fetchone()
+        if fila is None:
+            return None
+        columnas = [d.name for d in cur.description]
+        return dict(zip(columnas, fila))
+    finally:
+        conn.close()

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import AfiliadoExcepcion, AuditLogEntry, PadronRun
+from .models import AfiliadoExcepcion, AuditLogEntry, ConsumoConsultaLog, CronicoLog, PadronRun
 
 
 @admin.register(PadronRun)
@@ -28,6 +28,28 @@ class AfiliadoExcepcionAdmin(admin.ModelAdmin):
 class AuditLogEntryAdmin(admin.ModelAdmin):
     list_display = ["timestamp", "accion", "usuario", "username_intentado", "ip_address"]
     list_filter = ["accion"]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(ConsumoConsultaLog)
+class ConsumoConsultaLogAdmin(admin.ModelAdmin):
+    list_display = ["timestamp", "dni", "usuario", "total_recetas", "exitoso"]
+    list_filter = ["exitoso"]
+    search_fields = ["dni"]
+    readonly_fields = [f.name for f in ConsumoConsultaLog._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(CronicoLog)
+class CronicoLogAdmin(admin.ModelAdmin):
+    list_display = ["timestamp", "accion", "dni", "nro_afiliado", "usuario", "status_code_misrx", "exitoso"]
+    list_filter = ["accion", "exitoso"]
+    search_fields = ["dni", "nro_afiliado"]
+    readonly_fields = [f.name for f in CronicoLog._meta.fields]
 
     def has_add_permission(self, request):
         return False

@@ -1,0 +1,202 @@
+{% load padron_extras %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recetas y consumos MisRx - Gestión MisRx</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --bg-color: #F0F4F8;
+            --card-bg: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+            --error: #EF4444;
+            --success: #10B981;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 24px;
+        }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        header .brand { display: flex; align-items: center; gap: 14px; }
+        header .brand img { height: 36px; }
+        header h1 { font-size: 20px; font-weight: 700; }
+        header .user-info { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--text-muted); }
+        header .topnav { display: flex; align-items: center; gap: 20px; font-size: 13px; }
+        header .topnav a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        header .topnav a:hover { text-decoration: underline; }
+        header .topnav .topnav-current { color: var(--text-main); font-weight: 700; }
+        .user-badge { display: flex; align-items: center; gap: 8px; }
+        .user-badge strong { color: var(--text-main); font-weight: 700; }
+        .badge.role { background: #EFF6FF; color: #1D4ED8; }
+        .link-btn { background: none; border: none; padding: 0; margin-left: 12px; color: var(--primary); font-size: 13px; font-family: inherit; cursor: pointer; text-decoration: none; }
+        .link-btn:hover { text-decoration: underline; }
+        .card { background: var(--card-bg); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 24px; }
+        .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+        .btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 12px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn:hover { background: var(--primary-hover); }
+        .msg { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; word-break: break-word; }
+        .msg.success { background: #ECFDF5; color: #047857; }
+        .msg.error { background: #FEF2F2; color: #B91C1C; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        th { color: var(--text-muted); font-weight: 600; }
+        .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .badge.ok { background: #ECFDF5; color: #047857; }
+        .badge.error { background: #FEF2F2; color: #B91C1C; }
+        .buscar-form { display: flex; gap: 10px; margin-bottom: 4px; }
+        .buscar-form input { flex: 1; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 14px; font-family: inherit; }
+        .buscar-form input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+        .afiliado-info { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; font-size: 13px; }
+        .afiliado-info div span { display: block; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+        .afiliado-info .estado-inactivo { color: var(--error); font-weight: 700; }
+        .afiliado-info .estado-activo { color: var(--success); font-weight: 700; }
+        .resumen { display: flex; gap: 24px; flex-wrap: wrap; margin: 16px 0; }
+        .resumen div { background: var(--bg-color); border-radius: 10px; padding: 12px 16px; min-width: 160px; }
+        .resumen div span { display: block; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 4px; }
+        .resumen div strong { font-size: 18px; }
+        .tabla-scroll { overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <img src="https://ss-static-01.esmsv.com/id/163038/galeriaimagenes/obtenerimagen/?width=277&height=64&id=sitio_logo&ultimaModificacion=2026-08-03+11%3A32%3A28" alt="GM Salud">
+            <h1>Recetas y consumos MisRx</h1>
+        </div>
+        <nav class="topnav">
+            <a href="{% url 'padron:dashboard' %}">Padrón</a>
+            {% if request.user.is_superuser or perms.padron.can_manage_cronicos %}<a href="{% url 'padron:cronicos' %}">Crónicos</a>{% endif %}
+            <span class="topnav-current">Recetas y consumos</span>
+        </nav>
+        <div class="user-info">
+            <span class="user-badge">Usuario: <strong>{{ request.user.username }}</strong></span>
+            <form method="post" action="{% url 'padron:logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="link-btn">Cerrar sesión</button>
+            </form>
+        </div>
+    </header>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <h2>Buscar recetas y consumos por DNI</h2>
+        <form method="get" class="buscar-form">
+            <input type="text" name="dni" value="{{ dni_buscado }}" placeholder="Número de documento" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" data-solo-numeros>
+            <button type="submit" class="btn">Buscar</button>
+        </form>
+
+        {% if dni_buscado %}
+            {% if afiliado_gx is None %}
+                <div class="msg error" style="margin-top:16px;">DNI {{ dni_buscado }} no encontrado en GeneXus (igual se busca el consumo en MisRx por DNI).</div>
+            {% else %}
+                <div class="afiliado-info">
+                    <div><span>Nro. Afiliado</span>{{ afiliado_gx.nro_afiliado }}</div>
+                    <div><span>Nombre</span>{{ afiliado_gx.apellido }}, {{ afiliado_gx.nombres }}</div>
+                    <div><span>Estado GX</span><span class="{% if afiliado_gx.activo %}estado-activo{% else %}estado-inactivo{% endif %}">{{ afiliado_gx.estado }}</span></div>
+                    <div><span>Convenio</span>{{ afiliado_gx.convenio|nombre_convenio }}</div>
+                </div>
+            {% endif %}
+
+            {% if error_consulta %}
+                <div class="msg error" style="margin-top:16px;">Error consultando MisRx: {{ error_consulta }}</div>
+            {% elif items %}
+                <div class="resumen">
+                    <div><span>Recetas encontradas</span><strong>{{ total_reg }}</strong></div>
+                </div>
+                <div class="tabla-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha validación</th>
+                            <th>Producto</th>
+                            <th>Monodroga</th>
+                            <th>Laboratorio</th>
+                            <th>Farmacia</th>
+                            <th>Médico</th>
+                            <th>Cobertura</th>
+                            <th>Plan</th>
+                            <th>PVP</th>
+                            <th>Estado</th>
+                            <th>Cupón</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{% if item.fecha_validacion %}{{ item.fecha_validacion|date:"d/m/y" }}{% else %}-{% endif %}</td>
+                            <td>{{ item.producto }} <small>({{ item.presentacion }})</small></td>
+                            <td>{{ item.monodroga }}</td>
+                            <td>{{ item.laboratorio }}</td>
+                            <td>{{ item.farmacia_nombre }}</td>
+                            <td>{{ item.medico_nombre }}</td>
+                            <td>{{ item.porc_cobertura }}% (${{ item.cobertura }})</td>
+                            <td>{{ item.plan }}{% if item.plan_nombre %} <span class="badge role">{{ item.plan_nombre }}</span>{% endif %}</td>
+                            <td>${{ item.pvp }}</td>
+                            <td>{{ item.estado }}</td>
+                            <td>{% if item.cupon_url %}<a href="{{ item.cupon_url }}" target="_blank" rel="noopener">Descargar</a>{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                </div>
+            {% else %}
+                <div class="msg" style="margin-top:16px; background:var(--bg-color); color:var(--text-muted);">
+                    No hay recetas validadas registradas en MisRx para ese DNI.
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    {% if ultimas_consultas %}
+    <div class="card">
+        <h2>Últimas consultas (bitácora)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>DNI consultado</th>
+                    <th>Recetas encontradas</th>
+                    <th>Resultado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in ultimas_consultas %}
+                <tr>
+                    <td>{{ log.timestamp|date:"d/m/Y H:i" }}</td>
+                    <td>{{ log.usuario.username|default:"-" }}</td>
+                    <td>{{ log.dni }}</td>
+                    <td>{{ log.total_recetas|default:"-" }}</td>
+                    <td>
+                        {% if log.exitoso %}<span class="badge ok">OK</span>
+                        {% else %}<span class="badge error" title="{{ log.error }}">Error</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+    <script>
+        document.querySelectorAll('input[data-solo-numeros]').forEach(function (el) {
+            el.addEventListener('input', function () {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        });
+    </script>
+</body>
+</html>

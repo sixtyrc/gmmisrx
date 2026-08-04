@@ -1,0 +1,497 @@
+{% load padron_extras %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crónicos MisRx - Gestión MisRx</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563EB;
+            --primary-hover: #1D4ED8;
+            --bg-color: #F0F4F8;
+            --card-bg: #FFFFFF;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --border-color: #E2E8F0;
+            --error: #EF4444;
+            --success: #10B981;
+            --warning: #B45309;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 24px;
+        }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        header .brand { display: flex; align-items: center; gap: 14px; }
+        header .brand img { height: 36px; }
+        header h1 { font-size: 20px; font-weight: 700; }
+        header .user-info { display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--text-muted); }
+        header .topnav { display: flex; align-items: center; gap: 20px; font-size: 13px; }
+        header .topnav a { color: var(--primary); text-decoration: none; font-weight: 500; }
+        header .topnav a:hover { text-decoration: underline; }
+        header .topnav .topnav-current { color: var(--text-main); font-weight: 700; }
+        .user-badge { display: flex; align-items: center; gap: 8px; }
+        .user-badge strong { color: var(--text-main); font-weight: 700; }
+        .link-btn { background: none; border: none; padding: 0; margin-left: 12px; color: var(--primary); font-size: 13px; font-family: inherit; cursor: pointer; text-decoration: none; }
+        .link-btn:hover { text-decoration: underline; }
+        .card { background: var(--card-bg); border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); padding: 24px; margin-bottom: 24px; }
+        .card h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px; }
+        .btn { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 12px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+        .btn:hover { background: var(--primary-hover); }
+        .btn-danger { background: var(--error); }
+        .btn-danger:hover { background: #DC2626; }
+        .msg { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; word-break: break-word; }
+        .msg.success { background: #ECFDF5; color: #047857; }
+        .msg.error { background: #FEF2F2; color: #B91C1C; }
+        .msg.warning { background: #FFFBEB; color: var(--warning); }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+        th { color: var(--text-muted); font-weight: 600; }
+        .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .badge.ok { background: #ECFDF5; color: #047857; }
+        .badge.error { background: #FEF2F2; color: #B91C1C; }
+        .buscar-form { display: flex; gap: 10px; margin-bottom: 4px; }
+        .buscar-form input { flex: 1; padding: 12px 14px; border: 1px solid var(--border-color); border-radius: 10px; font-size: 14px; font-family: inherit; }
+        .buscar-form input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+        .afiliado-info { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; font-size: 13px; }
+        .afiliado-info div span { display: block; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+        .afiliado-info .estado-inactivo { color: var(--error); font-weight: 700; }
+        .afiliado-info .estado-activo { color: var(--success); font-weight: 700; }
+        pre.raw { background: var(--bg-color); border-radius: 8px; padding: 10px 12px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; }
+
+        details.abm { margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 18px; }
+        details.abm summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--primary); list-style: none; }
+        details.abm summary::-webkit-details-marker { display: none; }
+        details.abm summary::before { content: "▶ "; font-size: 11px; }
+        details.abm[open] summary::before { content: "▼ "; }
+        .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+        .form-grid .full { grid-column: 1 / -1; }
+        .form-grid label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+        .form-grid input, .form-grid select { width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; font-family: inherit; background: #fff; }
+        .form-grid input[readonly] { background: var(--bg-color); color: var(--text-muted); }
+        .form-grid small { display: block; color: var(--text-muted); font-size: 11px; margin-top: 3px; }
+        .checkbox-row { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
+        .checkbox-row input { width: auto; }
+        .form-actions { margin-top: 18px; display: flex; gap: 10px; }
+
+        .buscador-wrap { position: relative; }
+        .buscador-resultados {
+            display: none;
+            position: absolute;
+            z-index: 20;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            margin-top: 2px;
+        }
+        .buscador-resultados.show { display: block; }
+        .buscador-item { padding: 8px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border-color); }
+        .buscador-item:last-child { border-bottom: none; }
+        .buscador-item:hover { background: var(--bg-color); }
+        .buscador-vacio { padding: 8px 10px; font-size: 13px; color: var(--text-muted); }
+
+        .vademecum-status { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        details.vademecum-admin { margin-top: 16px; }
+        details.vademecum-admin summary { cursor: pointer; font-weight: 600; font-size: 13px; color: var(--primary); }
+        .vademecum-form-row { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; flex-wrap: wrap; }
+        .vademecum-form-row > div { flex: 1; min-width: 220px; }
+        .vademecum-form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; }
+        .vademecum-form-row input[type="text"], .vademecum-form-row input[type="file"] { width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; font-family: inherit; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="brand">
+            <img src="https://ss-static-01.esmsv.com/id/163038/galeriaimagenes/obtenerimagen/?width=277&height=64&id=sitio_logo&ultimaModificacion=2026-08-03+11%3A32%3A28" alt="GM Salud">
+            <h1>Crónicos MisRx (experimental)</h1>
+        </div>
+        <nav class="topnav">
+            <a href="{% url 'padron:dashboard' %}">Padrón</a>
+            <span class="topnav-current">Crónicos</span>
+            {% if request.user.is_superuser or perms.padron.can_view_consumos %}<a href="{% url 'padron:consumos' %}">Recetas y consumos</a>{% endif %}
+        </nav>
+        <div class="user-info">
+            <span class="user-badge">Usuario: <strong>{{ request.user.username }}</strong></span>
+            <form method="post" action="{% url 'padron:logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="link-btn">Cerrar sesión</button>
+            </form>
+        </div>
+    </header>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="msg {{ message.tags }}"><strong>{{ message.tags|title }}:</strong> {{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="msg warning">
+        Pantalla experimental. El comportamiento real de "baja" vía API todavía no está confirmado contra MisRx
+        (no existe verbo DELETE para prescripciones, solo el campo <code>baja</code> dentro del mismo alta) — ver
+        <code>docs/REFERENCIA_API_MISRX.md</code> sección 4. Cada intento queda registrado abajo con la respuesta
+        cruda completa de MisRx para poder ir depurando.
+    </div>
+
+    <div class="card">
+        <h2>Vademécum (monodroga/producto)</h2>
+        <p class="vademecum-status">
+            {% if vademecum_stats.total %}
+                {{ vademecum_stats.total }} productos cargados — última actualización {{ vademecum_stats.actualizado_en|date:"d/m/Y H:i" }} hs.
+            {% else %}
+                <strong>Vacío todavía.</strong> Los buscadores de monodroga/producto de abajo no van a devolver nada hasta cargarlo.
+            {% endif %}
+        </p>
+        <details class="vademecum-admin">
+            <summary>Actualizar vademécum</summary>
+            <form method="post" action="{% url 'padron:cronicos_vademecum_actualizar' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="vademecum-form-row">
+                    <div>
+                        <label>Subir archivo Excel (.xlsx)</label>
+                        <input type="file" name="archivo" accept=".xlsx">
+                    </div>
+                    <div>
+                        <label>O actualizar desde un link de Google Sheets</label>
+                        <input type="text" name="link" placeholder="Pegá el link tal cual lo copiás del navegador (vacío = usar el de siempre)">
+                    </div>
+                    <button type="submit" class="btn">Actualizar</button>
+                </div>
+                <small style="display:block; margin-top:8px; color:var(--text-muted);">Si subís un archivo, se usa ese. Si no, se usa el link (o el de siempre si lo dejás vacío). Reemplaza el vademécum completo — no hace falta borrar nada antes.</small>
+            </form>
+            {% if request.user.is_superuser and ultimas_actualizaciones_vademecum %}
+            <table style="margin-top:14px;">
+                <thead><tr><th>Fecha</th><th>Usuario</th><th>Detalle</th></tr></thead>
+                <tbody>
+                    {% for log in ultimas_actualizaciones_vademecum %}
+                    <tr>
+                        <td>{{ log.timestamp|date:"d/m/Y H:i" }}</td>
+                        <td>{{ log.usuario.username|default:"-" }}</td>
+                        <td>{{ log.detalle }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endif %}
+        </details>
+    </div>
+
+    <div class="card">
+        <h2>Buscar crónicos por DNI</h2>
+        <form method="get" class="buscar-form">
+            <input type="text" name="dni" value="{{ dni_buscado }}" placeholder="Número de documento" inputmode="numeric" pattern="[0-9]*" maxlength="10" autocomplete="off" data-solo-numeros>
+            <button type="submit" class="btn">Buscar</button>
+        </form>
+
+        {% if dni_buscado %}
+            {% if afiliado_gx is None %}
+                <div class="msg error" style="margin-top:16px;">DNI {{ dni_buscado }} no encontrado en GeneXus.</div>
+            {% else %}
+                <div class="afiliado-info">
+                    <div><span>Nro. Afiliado</span>{{ afiliado_gx.nro_afiliado }}</div>
+                    <div><span>Nombre</span>{{ afiliado_gx.apellido }}, {{ afiliado_gx.nombres }}</div>
+                    <div><span>Estado GX</span><span class="{% if afiliado_gx.activo %}estado-activo{% else %}estado-inactivo{% endif %}">{{ afiliado_gx.estado }}</span></div>
+                    <div><span>Convenio</span>{{ afiliado_gx.convenio|nombre_convenio }}</div>
+                </div>
+
+                {% if not afiliado_gx.activo %}
+                <div class="msg error" style="margin-top:16px;">
+                    Este afiliado <strong>no está Activo</strong> en GX. No se permite dar de alta ni editar coberturas
+                    para él — solo se acepta dar de baja un registro que ya exista (tildando "Dar de baja" abajo).
+                </div>
+                {% endif %}
+
+                {% if error_consulta %}
+                    <div class="msg error" style="margin-top:16px;">Error consultando MisRx: {{ error_consulta }}</div>
+                {% elif cronicos_misrx %}
+                    <table style="margin-top:16px;">
+                        <thead>
+                            <tr>
+                                <th>prescripcion_id</th>
+                                <th>Monodroga</th>
+                                <th>Cobertura</th>
+                                <th>Consumo</th>
+                                <th>Vigencia</th>
+                                <th>Estado afiliado (MisRx)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in cronicos_misrx.data %}
+                            <tr>
+                                <td>{{ p.prescripcion_id }}</td>
+                                <td>{{ p.monodroga }} <small>(id {{ p.monodroga_id }})</small></td>
+                                <td>{{ p.porc_cobertura }}%</td>
+                                <td>{{ p.consumo_cantidad_por_periodo }} / {{ p.consumo_periodo_tipo }}</td>
+                                <td>{{ p.fecha_inicio|slice:":10" }} a {{ p.fecha_fin|slice:":10" }}</td>
+                                <td>{{ p.afiliados_estado|default:"-" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="msg" style="margin-top:16px; background:var(--bg-color); color:var(--text-muted);">
+                        No tiene prescripciones crónicas cargadas en MisRx.
+                    </div>
+                {% endif %}
+
+                <details class="abm" id="abmDetails">
+                    <summary>Cargar / dar de baja una prescripción crónica</summary>
+                    <form method="post" action="{% url 'padron:cronicos_abm' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="dni" value="{{ dni_buscado }}">
+                        <div class="form-grid">
+                            <div>
+                                <label>Nro. Afiliado</label>
+                                <input type="text" name="nro_afiliado" value="{{ afiliado_gx.nro_afiliado }}" readonly required>
+                                <small>Viene de la búsqueda por DNI, no se edita</small>
+                            </div>
+                            <div>
+                                <label>DNI</label>
+                                <input type="number" name="nro_dni" value="{{ afiliado_gx.dni }}" readonly required>
+                                <small>Viene de la búsqueda por DNI, no se edita</small>
+                            </div>
+                            <div>
+                                <label>plan_id</label>
+                                <input type="number" name="plan_id" value="1939" readonly>
+                                <small>1939 = "Crónicos" (confirmado, único plan válido para este circuito en nuestro convenio)</small>
+                            </div>
+                            <div>
+                                <label>prescripciones_id</label>
+                                <input type="number" name="prescripciones_id" id="prescripciones_id" placeholder="vacío = alta nueva">
+                                <small>ID interno de MisRx. Vacío = alta nueva. Para editar/dar de baja una existente, usá el botón "Usar este" de la fila correspondiente en la tabla de arriba — no hace falta copiarlo a mano</small>
+                            </div>
+                            <div class="buscador-wrap">
+                                <label>Monodroga</label>
+                                <input type="text" id="buscarMonodroga" placeholder="Escribí el nombre (ej. insulina)" autocomplete="off">
+                                <input type="hidden" name="monodroga_id" id="monodroga_id">
+                                <div class="buscador-resultados" id="resultadosMonodroga"></div>
+                                <small>Búsqueda en vivo sobre el vademécum Alfabeta (21.183 productos, actualizado con <code>manage.py cargar_vademecum</code>)</small>
+                            </div>
+                            <div class="buscador-wrap">
+                                <label>Patología</label>
+                                <input type="text" id="buscarPatologia" placeholder="Opcional (ej. diabetes)" autocomplete="off">
+                                <input type="hidden" name="patologia_id" id="patologia_id" value="0">
+                                <div class="buscador-resultados" id="resultadosPatologia"></div>
+                                <small>Búsqueda en vivo contra <code>GET /patologias/938</code> (catálogo real de MisRx)</small>
+                            </div>
+                            <div>
+                                <label>% cobertura</label>
+                                <input type="number" step="0.01" name="porc_cobertura" id="porc_cobertura" value="100">
+                            </div>
+                            <div>
+                                <label>Cantidad por período</label>
+                                <input type="number" name="consumo_cantidad_por_periodo" id="consumo_cantidad_por_periodo">
+                            </div>
+                            <div>
+                                <label>Tipo de período</label>
+                                <select name="consumo_periodo_tipo" id="consumo_periodo_tipo">
+                                    <option value="0">0 = en días</option>
+                                    <option value="1" selected>1 = mensual</option>
+                                    <option value="2">2 = anual</option>
+                                </select>
+                                <small>Confirmado por documentación oficial de MisRx (no por el swagger público, que no lo aclaraba)</small>
+                            </div>
+                            <div>
+                                <label>Cantidad por receta</label>
+                                <input type="number" name="consumo_cantidad_por_receta" id="consumo_cantidad_por_receta">
+                                <small>Máximo permitido: igual a "Cantidad por período"</small>
+                            </div>
+                            <div>
+                                <label>Fecha inicio</label>
+                                <input type="date" name="fecha_inicio" id="fecha_inicio">
+                            </div>
+                            <div>
+                                <label>Fecha fin</label>
+                                <input type="date" name="fecha_fin" id="fecha_fin">
+                            </div>
+                            <div class="buscador-wrap full">
+                                <label>Producto comercial</label>
+                                <input type="text" id="buscarProducto" placeholder="Elegí primero la monodroga arriba, o escribí el nombre comercial" autocomplete="off">
+                                <input type="hidden" name="producto_id" id="producto_id">
+                                <div class="buscador-resultados" id="resultadosProducto"></div>
+                                <small>Si ya elegiste una monodroga, muestra sus productos aunque no escribas nada — igual que en el portal de MisRx</small>
+                            </div>
+                        </div>
+
+                        <div class="checkbox-row">
+                            <input type="checkbox" id="dar_de_baja" name="dar_de_baja">
+                            <label for="dar_de_baja" style="margin:0; font-weight:600; color:var(--text-main);">Dar de baja (requiere prescripciones_id)</label>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-danger">Enviar a MisRx</button>
+                        </div>
+                    </form>
+                </details>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    {% if request.user.is_superuser %}
+    <div class="card">
+        <h2>Últimas operaciones (log detallado)</h2>
+        <p class="vademecum-status">Visible solo para admin. Todas las operaciones (de admin y de operadores) quedan registradas acá, con quién las hizo.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>DNI / Nro. Afiliado</th>
+                    <th>Resultado</th>
+                    <th>Estado anterior (para rollback)</th>
+                    <th>Payload enviado</th>
+                    <th>Respuesta MisRx</th>
+                    <th>Rollback</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in ultimos_logs %}
+                <tr>
+                    <td>{{ log.timestamp|date:"d/m/Y H:i" }}</td>
+                    <td>{{ log.usuario.username|default:"-" }}</td>
+                    <td>{{ log.get_accion_display }}</td>
+                    <td>{{ log.dni }} / {{ log.nro_afiliado }}</td>
+                    <td><span class="badge {% if log.exitoso %}ok{% else %}error{% endif %}">{{ log.status_code_misrx|default:"-" }}</span></td>
+                    <td><pre class="raw">{{ log.estado_anterior|default:"-" }}</pre></td>
+                    <td><pre class="raw">{{ log.payload_enviado }}</pre></td>
+                    <td><pre class="raw">{{ log.respuesta_misrx }}</pre></td>
+                    <td>
+                        {% if log.estado_anterior %}
+                        <form method="post" action="{% url 'padron:cronicos_rollback' %}" onsubmit="return confirm('¿Restaurar el estado anterior a esta operación? Esto manda un POST real a MisRx.');">
+                            {% csrf_token %}
+                            <input type="hidden" name="log_id" value="{{ log.id }}">
+                            <button type="submit" class="btn btn-secondary" style="font-size:12px; padding:6px 10px;">Deshacer</button>
+                        </form>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:12px;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="9">Todavía no hay operaciones registradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <script>
+        (function () {
+            function setupBuscador(opts) {
+                var input = document.getElementById(opts.inputId);
+                var hidden = document.getElementById(opts.hiddenId);
+                var results = document.getElementById(opts.resultsId);
+                if (!input) return;
+                var timer = null;
+
+                function buscar() {
+                    var q = input.value.trim();
+                    var extra = opts.extraParams ? opts.extraParams() : {};
+                    var minLen = opts.minLenFn ? opts.minLenFn() : 3;
+                    if (q.length < minLen) {
+                        results.classList.remove('show');
+                        results.innerHTML = '';
+                        return;
+                    }
+                    var params = new URLSearchParams(Object.assign({q: q}, extra));
+                    fetch(opts.url + '?' + params.toString())
+                        .then(function (r) { return r.json(); })
+                        .then(function (data) {
+                            results.innerHTML = '';
+                            var items = data.resultados || [];
+                            if (items.length === 0) {
+                                var vacio = document.createElement('div');
+                                vacio.className = 'buscador-vacio';
+                                vacio.textContent = 'Sin resultados';
+                                results.appendChild(vacio);
+                            }
+                            items.forEach(function (item) {
+                                var div = document.createElement('div');
+                                div.className = 'buscador-item';
+                                var texto = item.nombre;
+                                if (item.presentacion) texto += ' — ' + item.presentacion;
+                                if (item.laboratorio) texto += ' (' + item.laboratorio + ')';
+                                div.textContent = texto + '  [id ' + item.id + ']';
+                                div.addEventListener('click', function () {
+                                    hidden.value = item.id;
+                                    input.value = item.nombre + (item.presentacion ? ' — ' + item.presentacion : '');
+                                    results.classList.remove('show');
+                                    if (opts.onSelect) opts.onSelect();
+                                });
+                                results.appendChild(div);
+                            });
+                            results.classList.add('show');
+                        });
+                }
+
+                input.addEventListener('input', function () {
+                    hidden.value = '';
+                    clearTimeout(timer);
+                    timer = setTimeout(buscar, 250);
+                });
+                input.addEventListener('focus', function () {
+                    if (opts.minLenFn && opts.minLenFn() === 0) buscar();
+                });
+                document.addEventListener('click', function (e) {
+                    if (e.target !== input && !results.contains(e.target)) {
+                        results.classList.remove('show');
+                    }
+                });
+                opts._buscar = buscar;
+                return opts;
+            }
+
+            var buscadorProducto = setupBuscador({
+                inputId: 'buscarProducto',
+                hiddenId: 'producto_id',
+                resultsId: 'resultadosProducto',
+                url: '{% url "padron:cronicos_buscar_producto" %}',
+                extraParams: function () {
+                    var monodrogaId = document.getElementById('monodroga_id').value;
+                    return monodrogaId ? {monodroga_id: monodrogaId} : {};
+                },
+                minLenFn: function () {
+                    return document.getElementById('monodroga_id').value ? 0 : 3;
+                }
+            });
+
+            setupBuscador({
+                inputId: 'buscarMonodroga',
+                hiddenId: 'monodroga_id',
+                resultsId: 'resultadosMonodroga',
+                url: '{% url "padron:cronicos_buscar_monodroga" %}',
+                onSelect: function () {
+                    document.getElementById('producto_id').value = '';
+                    document.getElementById('buscarProducto').value = '';
+                    if (buscadorProducto && buscadorProducto._buscar) buscadorProducto._buscar();
+                }
+            });
+
+            setupBuscador({
+                inputId: 'buscarPatologia',
+                hiddenId: 'patologia_id',
+                resultsId: 'resultadosPatologia',
+                url: '{% url "padron:cronicos_buscar_patologia" %}'
+            });
+        })();
+    </script>
+    <script>
+        document.querySelectorAll('input[data-solo-numeros]').forEach(function (el) {
+            el.addEventListener('input', function () {
+                this.value = this.value.replace(/[^0-9]/g, '');
+            });
+        });
+    </script>
+</body>
+</html>

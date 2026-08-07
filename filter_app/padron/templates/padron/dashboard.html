@@ -141,6 +141,15 @@
         }
         .btn-secondary:hover { background: #CBD5E1; }
 
+        .modal-box.modal-detalle { max-width: 640px; }
+        .detalle-btn {
+            font-weight: 700;
+            font-size: 13px;
+        }
+        .detalle-sin-boton { color: var(--text-muted); }
+        .detalle-tabla-wrap { max-height: 360px; overflow-y: auto; margin-bottom: 18px; }
+        .detalle-vacio { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+
         .filtro-fecha-form {
             display: flex;
             align-items: center;
@@ -285,8 +294,20 @@
                     <td><span class="badge {{ corrida.estado }}">{{ corrida.get_estado_display }}</span></td>
                     <td>{{ corrida.total_consulta_gx|default:"-" }}</td>
                     <td>{{ corrida.total_enviado_misrx|default:"-" }}</td>
-                    <td>{{ corrida.altas_count|default:"-" }}</td>
-                    <td>{{ corrida.bajas_count|default:"-" }}</td>
+                    <td>
+                        {% if corrida.altas_count %}
+                            <button type="button" class="link-btn detalle-btn" data-run="{{ corrida.pk }}" data-tipo="altas">{{ corrida.altas_count }}</button>
+                        {% else %}
+                            <span class="detalle-sin-boton">{{ corrida.altas_count|default:"-" }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if corrida.bajas_count %}
+                            <button type="button" class="link-btn detalle-btn" data-run="{{ corrida.pk }}" data-tipo="bajas">{{ corrida.bajas_count }}</button>
+                        {% else %}
+                            <span class="detalle-sin-boton">{{ corrida.bajas_count|default:"-" }}</span>
+                        {% endif %}
+                    </td>
                     <td>{{ corrida.misrx_estado_descripcion|default:"-" }}</td>
                 </tr>
                 {% empty %}
@@ -310,6 +331,29 @@
         {% endif %}
     </div>
 
+    <div class="modal-overlay" id="modalDetalle">
+        <div class="modal-box modal-detalle">
+            <h2 id="detalleTitulo">Detalle</h2>
+            <div class="detalle-tabla-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>DNI</th>
+                            <th>Credencial</th>
+                            <th>Apellido</th>
+                            <th>Nombres</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detalleTbody"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="btnCerrarDetalle">Cerrar</button>
+            </div>
+        </div>
+    </div>
+    {{ detalle_por_corrida|json_script:"detalleCorridas" }}
+
     {% if puede_ejecutar %}
     <script>
         (function () {
@@ -328,6 +372,52 @@
         })();
     </script>
     {% endif %}
+    <script>
+        (function () {
+            var dataEl = document.getElementById('detalleCorridas');
+            var detalle = dataEl ? JSON.parse(dataEl.textContent) : {};
+            var modal = document.getElementById('modalDetalle');
+            var titulo = document.getElementById('detalleTitulo');
+            var tbody = document.getElementById('detalleTbody');
+
+            function cerrar() { modal.classList.remove('show'); }
+
+            document.querySelectorAll('.detalle-btn').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var corrida = detalle[btn.dataset.run] || {};
+                    var lista = corrida[btn.dataset.tipo] || [];
+                    var etiqueta = btn.dataset.tipo === 'altas' ? 'Altas' : 'Bajas';
+                    titulo.textContent = etiqueta + ' - corrida del ' + (corrida.fecha || '');
+
+                    tbody.innerHTML = '';
+                    if (!lista.length) {
+                        var filaVacia = document.createElement('tr');
+                        var celdaVacia = document.createElement('td');
+                        celdaVacia.colSpan = 4;
+                        celdaVacia.className = 'detalle-vacio';
+                        celdaVacia.textContent = 'Sin detalle disponible para esta corrida (corridas anteriores a esta funcionalidad solo guardaron el conteo).';
+                        filaVacia.appendChild(celdaVacia);
+                        tbody.appendChild(filaVacia);
+                    } else {
+                        lista.forEach(function (item) {
+                            var fila = document.createElement('tr');
+                            [item.dni, item.nro_afiliado, item.apellido, item.nombres].forEach(function (valor) {
+                                var celda = document.createElement('td');
+                                celda.textContent = valor || '-';
+                                fila.appendChild(celda);
+                            });
+                            tbody.appendChild(fila);
+                        });
+                    }
+                    modal.classList.add('show');
+                });
+            });
+
+            document.getElementById('btnCerrarDetalle').addEventListener('click', cerrar);
+            modal.addEventListener('click', function (e) { if (e.target === modal) cerrar(); });
+            document.addEventListener('keydown', function (e) { if (e.key === 'Escape') cerrar(); });
+        })();
+    </script>
     <script>
         document.querySelectorAll('input[data-solo-numeros]').forEach(function (el) {
             el.addEventListener('input', function () {

@@ -27,6 +27,15 @@ def ejecutar_actualizacion(trigger, usuario=None, dry_run=False):
         run.total_consulta_gx = len(filas)
 
         dnis_actuales = sorted(str(f["dni"]) for f in filas)
+        registros_actuales = [
+            {
+                "dni": str(f["dni"]),
+                "nro_afiliado": f.get("nro_afiliado"),
+                "nombres": f.get("nombres"),
+                "apellido": f.get("apellido"),
+            }
+            for f in filas
+        ]
         contenido = csv_builder.construir_csv(filas)
         nombre = csv_builder.nombre_archivo()
 
@@ -41,8 +50,24 @@ def ejecutar_actualizacion(trigger, usuario=None, dry_run=False):
         )
         if corrida_anterior is not None:
             dnis_previos = set(corrida_anterior.dnis_incluidos)
-            run.altas_count = len(set(dnis_actuales) - dnis_previos)
-            run.bajas_count = len(dnis_previos - set(dnis_actuales))
+            dnis_actuales_set = set(dnis_actuales)
+            dnis_alta = dnis_actuales_set - dnis_previos
+            dnis_baja = dnis_previos - dnis_actuales_set
+
+            run.altas_count = len(dnis_alta)
+            run.bajas_count = len(dnis_baja)
+            run.altas_detalle = [r for r in registros_actuales if r["dni"] in dnis_alta]
+
+            # El detalle de las bajas sale del snapshot de la corrida ANTERIOR (ya
+            # no estan en la actual, asi que no hay de donde mas sacar su nombre).
+            # Si esa corrida anterior es previa a este campo, va a estar vacio y la
+            # baja queda sin detalle (solo el conteo).
+            registros_previos_por_dni = {
+                r["dni"]: r for r in (corrida_anterior.registros_incluidos or [])
+            }
+            run.bajas_detalle = [
+                registros_previos_por_dni[dni] for dni in dnis_baja if dni in registros_previos_por_dni
+            ]
 
         if not dry_run:
             misrx_client.subir_padron(contenido, nombre)
@@ -57,6 +82,7 @@ def ejecutar_actualizacion(trigger, usuario=None, dry_run=False):
         run.total_enviado_misrx = len(filas)
         run.archivo_generado = nombre
         run.dnis_incluidos = dnis_actuales
+        run.registros_incluidos = registros_actuales
         run.estado = PadronRun.ESTADO_OK
         run.finalizado_en = datetime.now(timezone.utc)
         run.save()

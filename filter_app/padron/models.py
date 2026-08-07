@@ -39,8 +39,17 @@ class PadronRun(models.Model):
 
     # DNIs incluidos en esta corrida, para poder diffear altas/bajas contra la corrida anterior
     dnis_incluidos = models.JSONField(default=list, blank=True)
+    # Snapshot completo (dni, nro_afiliado, nombres, apellido) de cada registro de
+    # esta corrida - permite reconstruir el detalle de las bajas de la PROXIMA
+    # corrida (dnis_incluidos solo alcanza para el conteo, no para saber quien era).
+    registros_incluidos = models.JSONField(default=list, blank=True)
     altas_count = models.IntegerField(null=True, blank=True)
     bajas_count = models.IntegerField(null=True, blank=True)
+    # Detalle (dni, nro_afiliado, nombres, apellido) de las altas/bajas de ESTA
+    # corrida respecto de la anterior, para mostrar en el panel quien especificamente
+    # entro o salio. Corridas previas a este campo quedan sin detalle (solo conteo).
+    altas_detalle = models.JSONField(default=list, blank=True)
+    bajas_detalle = models.JSONField(default=list, blank=True)
 
     error_mensaje = models.TextField(blank=True)
 

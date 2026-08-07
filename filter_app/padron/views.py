@@ -52,6 +52,17 @@ def dashboard(request):
     paginator = Paginator(corridas_qs, CORRIDAS_POR_PAGINA)
     corridas = paginator.get_page(request.GET.get("page"))
 
+    # Detalle de altas/bajas de la pagina actual, para el popup al hacer click en
+    # el numero (ver dashboard.html) - solo la pagina visible, no toda la tabla.
+    detalle_por_corrida = {
+        corrida.pk: {
+            "fecha": timezone.localtime(corrida.iniciado_en).strftime("%d/%m/%Y %H:%M"),
+            "altas": corrida.altas_detalle,
+            "bajas": corrida.bajas_detalle,
+        }
+        for corrida in corridas
+    }
+
     puede_ejecutar = request.user.is_superuser or request.user.has_perm("padron.can_run_padron")
     ultima_ok = PadronRun.objects.filter(estado=PadronRun.ESTADO_OK).order_by("-iniciado_en").first()
 
@@ -76,6 +87,7 @@ def dashboard(request):
         "mostrar_buscador_dni": MOSTRAR_BUSCADOR_DNI,
         "fecha_filtro": fecha_filtro,
         "proxima_corrida_automatica_iso": _proxima_corrida_automatica().isoformat(),
+        "detalle_por_corrida": detalle_por_corrida,
     })
 
 

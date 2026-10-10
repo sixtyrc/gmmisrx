@@ -171,3 +171,4 @@ O simplemente volver a correr el workflow contra un commit anterior de `prod` (`
 - El runner tiene acceso de escritura al filesystem del server — es equivalente a darle a GitHub Actions las mismas capacidades que un admin local. Mantenerlo solo con acceso a este repo (no compartido entre proyectos sin pensarlo).
 - El `.env` real vive solo en el server, nunca en el repo ni en los logs del workflow.
 - Cambios en el `Caddyfile`/certificados HTTPS quedan fuera del alcance del workflow (son de infraestructura, no de código de la app) — se tocan a mano si hace falta.
+- En producción `DJANGO_DEBUG` debe valer `False` y `DJANGO_SECRET_KEY` debe estar definida en el `.env` del server: el código trae `DEBUG=True` y una clave insegura como valores por defecto para desarrollo. Con `DEBUG` apagado las cookies de sesión y de CSRF salen con el flag `Secure` (ver [REVISION_SEGURIDAD_2026-10-10](./REVISION_SEGURIDAD_2026-10-10.md)).

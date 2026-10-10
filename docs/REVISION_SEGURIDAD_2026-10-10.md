@@ -5,7 +5,7 @@ Escaneo **desde afuera** de `https://misrxgm.ctsoft.com.ar` (pasa por Cloudflare
 ## Resultado
 
 - **ZAP baseline:** 0 fallas, 56 reglas aprobadas, 11 avisos.
-- **Nuclei:** la primera corrida no arrancó (no pudo bajar las plantillas) y se relanzó el 2026-10-10. **Sin resultado anotado todavía**: completar acá cuando termine.
+- **Nuclei:** 7.078 plantillas, severidad baja a crítica, 24 minutos: **0 hallazgos**. La primera corrida no arrancó (no pudo bajar las plantillas) y se relanzó el mismo día.
 
 ## Hallazgos y qué se hizo
 

@@ -46,6 +46,11 @@ CSRF_TRUSTED_ORIGINS = [
     f'https://{host}' for host in ALLOWED_HOSTS if host not in ('localhost', '127.0.0.1', 'testserver')
 ]
 
+# Las cookies de sesion y de CSRF solo viajan por HTTPS en produccion (el sitio es solo HTTPS,
+# detras de Cloudflare y Caddy). En local con DEBUG=True siguen funcionando por HTTP.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
 
 # Application definition
 

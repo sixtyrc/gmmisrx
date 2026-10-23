@@ -5,8 +5,28 @@ on:
     branches: [prod]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
+  # Sube filter_app/version.txt segun los commits nuevos (ver scripts/bump_version.py)
+  # y lo commitea en prod antes del deploy. Los pushes hechos con GITHUB_TOKEN no
+  # disparan otro workflow, asi que no hay loop.
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Calcular y commitear nueva version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 scripts/bump_version.py
+          git push origin HEAD:${{ github.ref_name }}
+
   deploy:
+    needs: version
     runs-on: self-hosted
     env:
       # Ruta donde esta clonado el repo EN EL SERVER (ajustar via Settings > Actions >

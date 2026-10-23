@@ -26,6 +26,7 @@ jobs:
         shell: powershell
         run: |
           cd "$env:DEPLOY_PATH\filter_app"
+          .\venv\Scripts\python -m pip install --upgrade "pip>=26.2.2"
           .\venv\Scripts\pip install -r requirements.txt
 
       - name: Migraciones

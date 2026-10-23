@@ -18,6 +18,13 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Version semantica de la app (MAJOR.MINOR.PATCH). Se actualiza con
+# scripts/bump_version.py antes de cada pase a prod.
+try:
+    APP_VERSION = (BASE_DIR / 'version.txt').read_text(encoding='utf-8').strip()
+except OSError:
+    APP_VERSION = 'dev'
+
 load_dotenv(BASE_DIR.parent / ".env")
 
 
@@ -88,6 +95,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'padron.context_processors.app_version',
             ],
         },
     },

@@ -10,6 +10,8 @@ from django.shortcuts import render
 from django.http import HttpResponse, Http404
 from django.conf import settings
 
+from padron.services.archivos import ArchivoInvalido, leer_validado
+
 
 TEMP_DIR = os.path.join(settings.BASE_DIR, 'tmp_downloads')
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -35,7 +37,8 @@ def filter_files(request):
             return render(request, 'processor/upload.html', {'error': 'Por favor, subí ambos archivos.'})
 
         try:
-            excel_bytes = excel_file.read()
+            excel_bytes = leer_validado(excel_file, ('.xlsx', '.xls'))
+            csv_bytes = leer_validado(csv_file, ('.csv',))
 
             # 1. Leer el Excel (columna DNI).
             df_excel = pd.read_excel(io.BytesIO(excel_bytes))
@@ -63,7 +66,6 @@ def filter_files(request):
             dnis_to_remove = set(df_excel['DNI'].dropna().apply(clean_dni))
 
             # 2. Leer el CSV (columna Nro Documento).
-            csv_bytes = csv_file.read()
             try:
                 df_csv = pd.read_csv(io.BytesIO(csv_bytes), sep=';', dtype=str, encoding='utf-8')
             except UnicodeDecodeError:
@@ -131,6 +133,8 @@ def filter_files(request):
             }
             return render(request, 'processor/upload.html', stats)
 
+        except ArchivoInvalido as e:
+            return render(request, 'processor/upload.html', {'error': str(e)})
         except Exception as e:
             return render(request, 'processor/upload.html', {'error': f'Ocurrió un error al procesar: {str(e)}'})
 

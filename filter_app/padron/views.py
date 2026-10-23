@@ -12,7 +12,7 @@ from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_POST
 
 from .models import AuditLogEntry, ConsumoConsultaLog, CronicoLog, PadronRun
-from .services import gx_query, misrx_client, planes, vademecum
+from .services import archivos, gx_query, misrx_client, planes, vademecum
 from .services.pipeline import ejecutar_actualizacion
 
 CORRIDAS_POR_PAGINA = 15
@@ -413,7 +413,7 @@ def cronicos_vademecum_actualizar(request):
     try:
         if archivo:
             origen = f"archivo subido ({archivo.name})"
-            total = vademecum.cargar_desde_bytes(archivo.read())
+            total = vademecum.cargar_desde_bytes(archivos.leer_validado(archivo, (".xlsx",)))
         else:
             origen = f"link: {link}" if link else "fuente por defecto"
             total = vademecum.descargar_y_cargar(url=link or None)

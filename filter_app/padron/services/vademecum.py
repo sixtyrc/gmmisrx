@@ -5,10 +5,13 @@ docs/REFERENCIA_API_MISRX.md seccion 4)."""
 import io
 import re
 
+from urllib.parse import urlparse
+
 import openpyxl
 import requests
 
 from ..models import VademecumItem
+from .archivos import TAMANO_MAXIMO, ArchivoInvalido, validar_contenido
 
 URL_VADEMECUM = "https://docs.google.com/spreadsheets/d/1lFNnjCyr6mkf46TZl0_eYn3BOlvfLdO8/export?format=xlsx"
 
@@ -24,12 +27,31 @@ def normalizar_url_google_sheets(url):
     return url
 
 
+# Solo se descargan planillas de Google Sheets: evita que el servidor vaya a
+# buscar URLs arbitrarias (incluidas direcciones de la red interna).
+HOSTS_PERMITIDOS = {"docs.google.com"}
+
+
+def validar_url(url):
+    partes = urlparse(url)
+    if partes.scheme != "https" or (partes.hostname or "").lower() not in HOSTS_PERMITIDOS:
+        raise ArchivoInvalido("El link tiene que ser una planilla de Google Sheets (https://docs.google.com/...).")
+
+
 def descargar_y_cargar(url=None):
     """Baja la planilla (por defecto la de `URL_VADEMECUM`, o la URL indicada) y
     reemplaza el contenido de VademecumItem por completo."""
-    resp = requests.get(normalizar_url_google_sheets(url) if url else URL_VADEMECUM, timeout=120)
-    resp.raise_for_status()
-    return cargar_desde_bytes(resp.content)
+    url = normalizar_url_google_sheets(url) if url else URL_VADEMECUM
+    validar_url(url)
+    with requests.get(url, timeout=120, stream=True) as resp:
+        resp.raise_for_status()
+        contenido = b""
+        for bloque in resp.iter_content(64 * 1024):
+            contenido += bloque
+            if len(contenido) > TAMANO_MAXIMO:
+                raise ArchivoInvalido("La planilla descargada supera el máximo de 10 MB.")
+    validar_contenido(contenido, ".xlsx", "La planilla descargada")
+    return cargar_desde_bytes(contenido)
 
 
 def cargar_desde_bytes(contenido_bytes):

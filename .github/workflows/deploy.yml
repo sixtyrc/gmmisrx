@@ -15,7 +15,7 @@ jobs:
   version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Calcular y commitear nueva version
@@ -24,6 +24,14 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           python3 scripts/bump_version.py
           git push origin HEAD:${{ github.ref_name }}
+      - name: Llevar el commit de version a dev (solo si es fast-forward)
+        run: |
+          git fetch origin dev
+          if git merge-base --is-ancestor origin/dev HEAD; then
+            git push origin HEAD:dev
+          else
+            echo "dev tiene commits que prod no tiene; se sincroniza en el proximo merge a prod."
+          fi
 
   deploy:
     needs: version

@@ -4,3 +4,5 @@
 - [TASK-002_AUTOMATIZACION_PADRON_MISRX](./TASK-002_AUTOMATIZACION_PADRON_MISRX.md): Plan de automatización de la actualización diaria del padrón en MisRx (query directa a Postgres, panel operativo, login/auditoría). En planificación, rama `dev`.
 - [REFERENCIA_API_MISRX](./REFERENCIA_API_MISRX.md): Catálogo completo de los endpoints de la API MisRx (recetas, prescripciones, autorizaciones, padrones, consultas) — qué hace cada uno y utilidad para expandir la integración. Solo investigación, sin código.
 - [REVISION_SEGURIDAD_2026-10-10](./REVISION_SEGURIDAD_2026-10-10.md): Escaneo de seguridad externo (ZAP + Nuclei) del sitio en producción: hallazgos, qué se corrigió (cookies `Secure`) y qué falta (CSP, verificar `.env` del servidor).
+- [DEPLOY](./DEPLOY.md): Deploy a producción (rama `prod`, runner self-hosted, NSSM) y versionado semántico automático (`version.txt`, visible en el login).
+- [MANTENIMIENTO_2026-10-23](./MANTENIMIENTO_2026-10-23.md): Actualización de dependencias por CVE, logo roto, validación de uploads y versionado automático.

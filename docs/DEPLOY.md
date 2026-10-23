@@ -141,14 +141,32 @@ Con esto, el runner queda escuchando jobs de este repo todo el tiempo, como un s
 ## Despliegues siguientes (automáticos)
 
 Con el runner instalado, cada `push` a `prod` dispara `.github/workflows/deploy.yml`, que:
+0. **Job `version`** (en `ubuntu-latest`, antes del deploy): calcula la versión nueva y la commitea en `prod` (ver [Versionado](#versionado)).
 1. Hace `git fetch` + `git reset --hard origin/prod` en `C:\www\gmmisrx` (sin tocar `.env`, `logs/`, `padron_archivos/` — están en `.gitignore`, `git reset --hard` no los toca).
-2. Reinstala dependencias (`pip install -r requirements.txt`).
+2. Actualiza `pip` (>= 26.2.2) y reinstala dependencias (`pip install -r requirements.txt`).
 3. Corre `migrate`.
-4. Reinicia el servicio NSSM (`nssm restart gmmisrx-panel`).
+4. Corre `collectstatic`.
+5. Reinicia el servicio NSSM (`nssm restart gmmisrx-panel`).
 
 También se puede disparar a mano desde GitHub (pestaña Actions → el workflow → "Run workflow"), sin esperar un push.
 
 **Flujo normal de trabajo**: se desarrolla y prueba en `dev`, y cuando algo está listo para producción se mergea `dev` → `prod` y se pushea `prod` — eso es lo que efectivamente actualiza el server. `main` queda congelada como baseline histórico, no participa del flujo de deploy.
+
+## Versionado
+
+La app usa versionado semántico (`MAJOR.MINOR.PATCH`). La versión vive en `filter_app/version.txt`, se lee en `settings.APP_VERSION` y se muestra en el login ("Versión X.Y.Z").
+
+Se actualiza **sola** en cada push a `prod`: el job `version` del workflow corre `scripts/bump_version.py`, que mira los commits (sin merges) desde el último cambio de `version.txt`:
+
+| Commits desde la última versión | Cambio | Ejemplo |
+|---|---|---|
+| Alguno con `!` antes de `:` (`feat!: ...`) o `BREAKING CHANGE` | MAJOR | 1.4.2 → 2.0.0 |
+| Algún `feat` | MINOR | 1.4.2 → 1.5.0 |
+| Cualquier otro (`fix`, `ci`, `docs`, `chore`, ...) | PATCH | 1.4.2 → 1.4.3 |
+
+El bot commitea `chore(release): vX.Y.Z` en `prod` y, si `dev` no tiene commits propios, también lo lleva a `dev` para que las dos ramas queden iguales. Si `dev` ya avanzó, no pasa nada: se sincroniza en el próximo merge.
+
+Para que el criterio funcione, los commits tienen que seguir *conventional commits* (`feat:`, `fix:`, etc.). No hace falta tocar `version.txt` a mano; `python scripts/bump_version.py --dry-run` muestra qué versión saldría sin cambiar nada.
 
 ## Rollback
 

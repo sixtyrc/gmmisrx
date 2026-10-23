@@ -27,7 +27,7 @@ def git(*args):
 def commits_desde_ultima_version():
     ultimo = git("log", "-1", "--format=%H", "--", RUTA_GIT).strip()
     rango = f"{ultimo}..HEAD" if ultimo else "HEAD"
-    salida = git("log", rango, "--format=%B%x00")
+    salida = git("log", rango, "--no-merges", "--format=%B%x00")
     return [c.strip() for c in salida.split("\x00") if c.strip()]
 
 

@@ -1,3 +1,4 @@
+{% load static %}
 {% load padron_extras %}
 <!DOCTYPE html>
 <html lang="es">
@@ -69,7 +70,7 @@
 <body>
     <header>
         <div class="brand">
-            <img src="https://ss-static-01.esmsv.com/id/163038/galeriaimagenes/obtenerimagen/?width=277&height=64&id=sitio_logo&ultimaModificacion=2026-08-03+11%3A32%3A28" alt="GM Salud">
+            <img src="{% static 'padron/logo.png' %}" alt="GM Salud">
             <h1>Recetas y consumos MisRx</h1>
         </div>
         <nav class="topnav">
